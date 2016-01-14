@@ -47,6 +47,7 @@ STATIC ESESTATUS phNxpEseP61_WaitForAck(void);
 STATIC ESESTATUS phNxpEseP61_InitWaitAck(void);
 STATIC void phNxpEseP61_ResetRecovery(void);
 STATIC ESESTATUS pnNxpEseP61_sendRFrame(void);
+STATIC void pnNxpEseP61_resetCmdRspState(ESESTATUS status);
 /**
  * \ingroup spi_t1_protocol_implementation
  * \brief It is used to process the request from JNI. \n
@@ -721,6 +722,7 @@ ESESTATUS phNxpEseP61_Action(ESESTATUS action_evt, uint32_t data_len, uint8_t *p
     ESESTATUS status = ESESTATUS_FAILED;
     STATIC bool_t chained_flag = FALSE;
     phNxpEseP61_data pRes;
+    bool_t wtx_flag = FALSE;
     uint8_t recv_ack[4] = {0x00, 0x80, 0x00, 0x00};
 
     NXPLOG_SPIHAL_D("%s - Enter action 0x%X - data_len %d !!!", __FUNCTION__, action_evt, data_len);
@@ -734,7 +736,24 @@ ESESTATUS phNxpEseP61_Action(ESESTATUS action_evt, uint32_t data_len, uint8_t *p
         }
         status = ESESTATUS_ABORTED;
     }
-
+#if(NFC_NXP_ESE_VER == JCOP_VER_3_2)
+        if(nxpesehal_ctrl.wtx_counter_value != 0)
+        {
+           wtx_flag = TRUE;
+        }
+#endif
+    if(wtx_flag)
+    {
+        if(action_evt != ESESTATUS_WTX_REQ)
+        {
+            nxpesehal_ctrl.wtx_counter = 0;
+        }
+        else
+        {
+            nxpesehal_ctrl.wtx_counter++;
+            NXPLOG_SPIHAL_D("wtx count reached  [%lu]",nxpesehal_ctrl.wtx_counter);
+        }
+    }
     switch(action_evt)
     {
     case ESESTATUS_RESPONSE_TIMEOUT:
@@ -914,6 +933,8 @@ ESESTATUS phNxpEseP61_Action(ESESTATUS action_evt, uint32_t data_len, uint8_t *p
     if ((ESESTATUS_FAILED == status) || (ESESTATUS_ABORTED == status))
     {
         NXPLOG_SPIHAL_D("%s Error Resoponse", __FUNCTION__);
+        /*Unblock if any pending reset wait for reset to complete*/
+        pnNxpEseP61_resetCmdRspState(status);
         phNxpEseP61_SendtoUpper(status, NULL);
         status = ESESTATUS_FAILED;
     }
@@ -924,12 +945,16 @@ ESESTATUS phNxpEseP61_Action(ESESTATUS action_evt, uint32_t data_len, uint8_t *p
         if (ESESTATUS_SUCCESS == status)
         {
             NXPLOG_SPIHAL_D("%s DataLen = %d", __FUNCTION__, pRes.len);
+            /*Unblock if any pending reset wait for reset to complete*/
+            pnNxpEseP61_resetCmdRspState(status);
             phNxpEseP61_SendtoUpper(status, &pRes);
             free(pRes.p_data);
         }
         else
         {
             NXPLOG_SPIHAL_E("%s phNxpEseP61_GetData failed 0x%X", __FUNCTION__, status);
+            /*Unblock if any pending reset wait for reset to complete*/
+            pnNxpEseP61_resetCmdRspState(status);
             phNxpEseP61_SendtoUpper(ESESTATUS_FAILED, NULL);
         }
         chained_flag = FALSE;
@@ -940,6 +965,8 @@ ESESTATUS phNxpEseP61_Action(ESESTATUS action_evt, uint32_t data_len, uint8_t *p
         NXPLOG_SPIHAL_D("%s Single Frame Resoponse", __FUNCTION__);
         pRes.len = data_len;
         pRes.p_data = p_data;
+        /*Unblock if any pending reset wait for reset to complete*/
+        pnNxpEseP61_resetCmdRspState(status);
         phNxpEseP61_SendtoUpper(status, &pRes);
 
     }
@@ -947,14 +974,23 @@ ESESTATUS phNxpEseP61_Action(ESESTATUS action_evt, uint32_t data_len, uint8_t *p
     {
         uint8_t wtx_frame[] = {0x00, 0xE3, 0x01, 0x01, 0xE3};
         NXPLOG_SPIHAL_D("%s WTX Request", __FUNCTION__);
+        /* Trigger SPI service to re-set timer */
+        if(wtx_flag)
+        {
+            if(nxpesehal_ctrl.wtx_counter == nxpesehal_ctrl.wtx_counter_value)
+            {
+                phNxpEseP61_SPM_DisablePwr();
+                NXPLOG_SPIHAL_D(" Disable power to P61 wtx count reached!!!");
+                status = phNxpEseP61_SendRawFrame(sizeof(wtx_frame), wtx_frame);
+                return status;
+            }
+        }
         status = phNxpEseP61_SendRawFrame(sizeof(wtx_frame), wtx_frame);
         if (ESESTATUS_SUCCESS == status)
         {
             status = ESESTATUS_WTX_REQ;
         }
-        /* Triggern SPI service to re-set timer */
         phNxpEseP61_SendtoUpper(status, NULL);
-
     }
 #if 0
     else if (ESESTATUS_WTX_REQ == status)
@@ -1170,3 +1206,102 @@ STATIC ESESTATUS pnNxpEseP61_sendRFrame(void)
     return status;
 }
 
+/**
+ * \ingroup spi_t1_protocol_implementation
+ * \brief This function initialises semaphore
+ *
+ * \param[in]       Semaphore pointer
+ *
+ * \retval ESESTATUS_SUCCESS on sucess or Error code for failure.
+ *
+*/
+ESESTATUS phNxpEseP61_SemInit(phNxpSpiHal_Sem_t *event_ack)
+{
+    ESESTATUS status = ESESTATUS_FAILED;
+    /* Create the local semaphore */
+    status = phNxpSpiHal_init_cb_data(event_ack, NULL);
+    if (status!= ESESTATUS_SUCCESS)
+    {
+        NXPLOG_SPIHAL_D("%s Create ext_cb_data failed", __FUNCTION__);
+
+    }
+    return status;
+}
+
+/**
+ * \ingroup spi_t1_protocol_implementation
+ * \brief This function waits for the initialised semaphore
+ *
+ * \param[in]       Semaphore pointer
+ *
+ * \retval ESESTATUS_SUCCESS on sucess or Error code for failure.
+ *
+*/
+ESESTATUS phNxpEseP61_SemWait(phNxpSpiHal_Sem_t *event_ack)
+{
+    ESESTATUS status = ESESTATUS_FAILED;
+    NXPLOG_SPIHAL_D("%s Enter ", __FUNCTION__);
+
+    nxpesehal_ctrl.status_code = ESESTATUS_SUCCESS;
+
+    NXPLOG_SPIHAL_D("%s start waiting for resp/reset", __FUNCTION__);
+
+    if(SEM_WAIT((*event_ack)))
+    {
+        NXPLOG_SPIHAL_E("p_hal_ext->ext_cb_data.sem semaphore error");
+        status = ESESTATUS_FAILED;
+        goto clean_and_return;
+    }
+    status = nxpesehal_ctrl.status_code;
+
+clean_and_return:
+    phNxpSpiHal_cleanup_cb_data(event_ack);
+    NXPLOG_SPIHAL_D("%s Exit  status 0x%x", __FUNCTION__, status);
+    return status;
+}
+
+/**
+ * \ingroup spi_t1_protocol_implementation
+ * \brief This function posts the waiting semaphore to unblock
+ *
+ * \param[in]       Semaphore pointer, ESESTATUS
+ *
+ * \retval ESESTATUS_SUCCESS on sucess or Error code for failure.
+ *
+*/
+void phNxpEseP61_SemUnlock(phNxpSpiHal_Sem_t *event_ack, ESESTATUS status)
+{
+    nxpesehal_ctrl.status_code = status;
+
+    NXPLOG_SPIHAL_D("%s enter status 0x%x", __FUNCTION__, status);
+
+    /*Release the Semaphore to send next packet*/
+    SEM_POST(event_ack);
+    NXPLOG_SPIHAL_D("%s exit ", __FUNCTION__);
+}
+
+/**
+ * \ingroup spi_t1_protocol_implementation
+ * \brief This function resets the TRANS STATE when response is received
+ * and waits on reset action semaphore.
+ *
+ * \param[in]       status
+ *
+ * \retval ESESTATUS_SUCCESS on sucess or Error code for failure.
+ *
+*/
+void pnNxpEseP61_resetCmdRspState(ESESTATUS status)
+{
+    if(nxpesehal_ctrl.cmd_rsp_state == STATE_RESET_BLOCKED)
+    {
+        NXPLOG_SPIHAL_D("%s enter state = STATE_RESET_BLOCKED", __FUNCTION__);
+        /*unblock pending reset operation*/
+        phNxpEseP61_SemUnlock(&nxpesehal_ctrl.cmd_rsp_ack, status);
+        /*wait for pending reset event to complete before sending it to upper layer*/
+        phNxpEseP61_SemInit(&nxpesehal_ctrl.reset_ack);
+        phNxpEseP61_SemWait(&nxpesehal_ctrl.reset_ack);
+        NXPLOG_SPIHAL_D("%s release blocked transceive", __FUNCTION__);
+    }
+    nxpesehal_ctrl.cmd_rsp_state = STATE_IDLE;
+    NXPLOG_SPIHAL_D("%s state = STATE_IDLE", __FUNCTION__);
+}

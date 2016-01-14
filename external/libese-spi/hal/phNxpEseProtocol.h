@@ -24,6 +24,12 @@
 #define PH_SCAL_T1_CHAINING       0x20
 #define PH_SCAL_T1_SINGLE_FRAME   0x00
 
+/* Macro to enable SPM Module */
+#define SPM_INTEGRATED
+//#undef SPM_INTEGRATED
+#ifdef SPM_INTEGRATED
+#include "../spm/phNxpEseP61_Spm.h"
+#endif
 typedef enum PH_SCAL_T1_FRAME {
     PH_SCAL_I_FRAME,
     PH_SCAL_R_FRAME,
@@ -58,7 +64,11 @@ struct PCB_BITS {
 /* Timeout value to wait for response from P61 */
 #define HAL_EXTNS_WRITE_RSP_TIMEOUT   (1000)
 
+
 void phNxpEseP61_ProcessResponse(uint32_t data_len, uint8_t *p_data);
 ESESTATUS phNxpEseP61_ProcessData(uint32_t data_len, uint8_t *p_data);
 ESESTATUS phNxpEseP61_Action(ESESTATUS action_evt, uint32_t data_len, uint8_t *p_data);
+ESESTATUS phNxpEseP61_SemInit(phNxpSpiHal_Sem_t *event_ack);
+ESESTATUS phNxpEseP61_SemWait(phNxpSpiHal_Sem_t *event_ack);
+void phNxpEseP61_SemUnlock(phNxpSpiHal_Sem_t *event_ack, ESESTATUS status);
 #endif /* _PHNXPPROTOCOL_H_ */

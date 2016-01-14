@@ -20,7 +20,11 @@
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <linux/p61.h>
 #include "phNxpEseP61_Spm.h"
+#include <phNxpEseHal.h>
+#include <phNxpEseProtocol.h>
+
 
 #define debug
 #ifdef debug
@@ -32,8 +36,10 @@
 #endif
 
 /*********************** Global Variables *************************************/
-#define DEVICE_NODE "/dev/pn544"
+#define DEVICE_NODE "/dev/p61"
 static int fd_p61_device = -1;
+
+extern phNxpEseP61_Control_t nxpesehal_ctrl;
 
 /*********************** Function Declaration**********************************/
 static spm_state_t phNxpEseP61_StateMaping(p61_access_state_t p61_current_state);
@@ -114,7 +120,22 @@ SPMSTATUS phNxpEseP61_SPM_ConfigPwr(spm_power_t arg)
     SPMSTATUS wSpmStatus = SPMSTATUS_SUCCESS;
     spm_state_t current_spm_state = SPM_STATE_INVALID;
 
-    ret = ioctl(fd_p61_device, P61_SET_SPI_PWR, arg);
+    if((nxpesehal_ctrl.cmd_rsp_state == STATE_TRANS_ONGOING) &&
+      ((arg == SPM_POWER_DISABLE)||(arg == SPM_POWER_RESET)))
+    {
+        ALOGD("Reset performed while pending APDU response state = STATE_RESET_BLOCKED");
+
+        nxpesehal_ctrl.cmd_rsp_state = STATE_RESET_BLOCKED;
+        phNxpEseP61_SemInit(&nxpesehal_ctrl.cmd_rsp_ack);
+        phNxpEseP61_SemWait(&nxpesehal_ctrl.cmd_rsp_ack);
+        ALOGD("%s : After APDU response received perform ioctl", __FUNCTION__);
+    }
+
+    ret = ioctl(fd_p61_device, P61_SET_SPM_PWR, arg);
+
+    if(nxpesehal_ctrl.cmd_rsp_state == STATE_RESET_BLOCKED)
+        phNxpEseP61_SemUnlock(&nxpesehal_ctrl.reset_ack, ESESTATUS_SUCCESS);
+
     switch(arg){
     case SPM_POWER_DISABLE:
     {
@@ -253,7 +274,7 @@ SPMSTATUS phNxpEseP61_SPM_EnablePwr(void)
     SPMSTATUS wSpmStatus = SPMSTATUS_SUCCESS;
     spm_state_t current_spm_state = SPM_STATE_INVALID;
 
-    ret = ioctl(fd_p61_device, P61_SET_SPI_PWR, 1);
+    ret = ioctl(fd_p61_device, P61_SET_SPM_PWR, 1);
     if(ret < 0)
     {
         ALOGE("%s : failed errno = 0x%x", __FUNCTION__, errno);
@@ -302,7 +323,7 @@ SPMSTATUS phNxpEseP61_SPM_DisablePwr(void)
     int32_t ret = -1;
     SPMSTATUS status = SPMSTATUS_SUCCESS;
 
-    ret = ioctl(fd_p61_device, P61_SET_SPI_PWR, 0);
+    ret = ioctl(fd_p61_device, P61_SET_SPM_PWR, 0);
     if(ret < 0)
     {
         ALOGE("%s : failed errno = 0x%x", __FUNCTION__, errno);
@@ -331,7 +352,7 @@ SPMSTATUS phNxpEseP61_SPM_GetState(spm_state_t *current_state)
         ALOGE("%s : failed Invalid argument", __FUNCTION__);
         return SPMSTATUS_FAILED;
     }
-    ret = ioctl(fd_p61_device, P61_GET_PWR_STATUS, (unsigned long )&p61_current_state);
+    ret = ioctl(fd_p61_device, P61_GET_SPM_STATUS, (int32_t )&p61_current_state);
     if(ret < 0)
     {
         ALOGE("%s : failed errno = 0x%x", __FUNCTION__, errno);
@@ -361,7 +382,7 @@ SPMSTATUS phNxpEseP61_SPM_ResetPwr(void)
     spm_state_t current_spm_state = SPM_STATE_INVALID;
 
     /* reset the p61 */
-    ret = ioctl(fd_p61_device, P61_SET_SPI_PWR, 2);
+    ret = ioctl(fd_p61_device, P61_SET_SPM_PWR, 2);
     if(ret < 0)
     {
         ALOGE("%s : failed errno = 0x%x", __FUNCTION__, errno);

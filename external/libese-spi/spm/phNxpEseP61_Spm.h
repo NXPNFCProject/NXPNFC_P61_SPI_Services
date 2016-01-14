@@ -49,29 +49,6 @@ typedef enum spm_state{
     SPM_STATE_SPI_PRIO_END = 0x2000  /*End of p61 access by SPI on priority*/
 }spm_state_t;
 
-/*Removing the dependency of bionic pn544.h */
-#define PN544_MAGIC 0xE9
-
-/*
- * SPI Request NFCC to enable p61 power, only in param
- * Only for SPI
- * level 1 = Enable power
- * level 0 = Disable power
- */
-#define P61_SET_SPI_PWR    _IOW(PN544_MAGIC, 0x02, unsigned int)
-
-/* SPI or DWP can call this ioctl to get the current
- * power state of P61
- *
-*/
-#define P61_GET_PWR_STATUS    _IOR(PN544_MAGIC, 0x03, unsigned int)
-
-/* DWP side this ioctl will be called
- * level 1 = Wired access is enabled/ongoing
- * level 0 = Wired access is disalbed/stopped
-*/
-#define P61_SET_WIRED_ACCESS _IOW(PN544_MAGIC, 0x04, unsigned int)
-
 /**
  * \ingroup spm_module
  * \brief This function opens the nfc i2c driver to manage power and synchronization

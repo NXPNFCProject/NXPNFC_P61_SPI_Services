@@ -31,9 +31,18 @@ typedef enum
    ESE_STATUS_OPEN,
 } phNxpEse_HalStatus;
 
+typedef enum
+{
+   STATE_IDLE = 0x00,
+   STATE_TRANS_ONGOING = 0x01,
+   STATE_RESET_BLOCKED =0x02,
+}transceive_state;
+
+
 /* Macros to enable and disable extensions */
 #define HAL_ENABLE_EXT()    (nxpesehal_ctrl.hal_ext_enabled = 1)
 #define HAL_DISABLE_EXT()   (nxpesehal_ctrl.hal_ext_enabled = 0)
+
 /* SPI Control structure */
 typedef struct phNxpEseP61_Control
 {
@@ -82,8 +91,23 @@ typedef struct phNxpEseP61_Control
     ESESTATUS current_operation;
     ESESTATUS status_code;
     bool_t  spm_power_state;
+
     /*Whether last transmission a R-Frame*/
     uint8_t isRFrame;
+
+    /* WTX  Set counter value*/
+    unsigned long int wtx_counter_value;
+
+    /* WTX  counter */
+    unsigned long int wtx_counter;
+
+    /*Whether last transmission a R-Frame*/
+    phNxpSpiHal_Sem_t cmd_rsp_ack;
+
+    transceive_state cmd_rsp_state;
+
+    /*Reset API response ack*/
+    phNxpSpiHal_Sem_t reset_ack;
 } phNxpEseP61_Control_t;
 
 

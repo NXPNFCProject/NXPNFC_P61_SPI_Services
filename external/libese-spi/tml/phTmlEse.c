@@ -24,7 +24,8 @@
 #include <phDal4Ese_messageQueueLib.h>
 #include <phTmlEse_spi.h>
 #include <phNxpSpiHal_utils.h>
-
+#include <phNxpEseHal.h>
+#include <phNxpEseProtocol.h>
 /*
  * Duration of Timer to wait after sending an Spi packet
  */
@@ -53,7 +54,7 @@ static void phTmlEse_TmlWriterThread(void *pParam);
 static void phTmlEse_ReTxTimerCb(uint32_t dwTimerId, void *pContext);
 static ESESTATUS phTmlEse_InitiateTimer(void);
 
-
+extern phNxpEseP61_Control_t nxpesehal_ctrl;
 /* Function definitions */
 
 /*******************************************************************************

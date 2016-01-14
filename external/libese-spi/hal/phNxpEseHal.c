@@ -63,6 +63,7 @@ ESESTATUS phNxpEseP61_open( ese_stack_data_callback_t *p_data_cback)
     phOsalEse_Config_t tOsalConfig;
     phTmlEse_Config_t tTmlConfig;
     ESESTATUS wConfigStatus = ESESTATUS_SUCCESS;
+    unsigned long int num = 0;
 #ifdef SPM_INTEGRATED
     SPMSTATUS wSpmStatus = SPMSTATUS_SUCCESS;
     spm_state_t current_spm_state = SPM_STATE_INVALID;
@@ -78,9 +79,22 @@ ESESTATUS phNxpEseP61_open( ese_stack_data_callback_t *p_data_cback)
     memset(&tOsalConfig, 0x00, sizeof(tOsalConfig));
     memset(&tTmlConfig, 0x00, sizeof(tTmlConfig));
 
+#if(NFC_NXP_ESE_VER == JCOP_VER_3_2)
+    if (GetNxpNumValue (NAME_NXP_WTX_COUNT_VALUE, &num, sizeof(num)))
+    {
+        nxpesehal_ctrl.wtx_counter_value = num;
+        NXPLOG_SPIHAL_E("Wtx_counter read from config file - %lu",num);
+    }
+    else
+    {
+        nxpesehal_ctrl.wtx_counter_value = 0;
+        NXPLOG_SPIHAL_E("Wtx_counter not defined in config file - %lu",num);
+    }
+#endif
     /* make sequence counter 1*/
     nxpesehal_ctrl.seq_counter = 0x01;
     nxpesehal_ctrl.isRFrame = 0;
+    nxpesehal_ctrl.cmd_rsp_state = STATE_IDLE;
     /* reset config cache */
     resetNxpConfig();
 
@@ -260,20 +274,26 @@ ESESTATUS phNxpEseP61_openPrioSession(ese_stack_data_callback_t *p_data_cback, u
     phOsalEse_Config_t tOsalConfig;
     phTmlEse_Config_t tTmlConfig;
     ESESTATUS wConfigStatus = ESESTATUS_SUCCESS;
+    unsigned long int num = 0;
 #ifdef SPM_INTEGRATED
     SPMSTATUS wSpmStatus = SPMSTATUS_SUCCESS;
     spm_state_t current_spm_state = SPM_STATE_INVALID;
 #endif
-#if(NFC_NXP_ESE_VER == JCOP_VER_3_3)
-    {
-        wConfigStatus = phNxpEseP61_open(p_data_cback);
-        return wConfigStatus;
-    }
-#endif
     memset(&nxpesehal_ctrl, 0x00, sizeof(nxpesehal_ctrl));
     memset(&tOsalConfig, 0x00, sizeof(tOsalConfig));
     memset(&tTmlConfig, 0x00, sizeof(tTmlConfig));
-
+#if(NFC_NXP_ESE_VER == JCOP_VER_3_2)
+    if (GetNxpNumValue (NAME_NXP_WTX_COUNT_VALUE, &num, sizeof(num)))
+    {
+        nxpesehal_ctrl.wtx_counter_value = num;
+        NXPLOG_SPIHAL_E("Wtx_counter read from config file - %lu",num);
+    }
+    else
+    {
+        nxpesehal_ctrl.wtx_counter_value = 0;
+        NXPLOG_SPIHAL_E("Wtx_counter not defined in config file - %lu",num);
+    }
+#endif
     /* make sequence counter 1*/
     nxpesehal_ctrl.seq_counter = 0x01;
     /* reset config cache */
@@ -331,6 +351,8 @@ ESESTATUS phNxpEseP61_openPrioSession(ese_stack_data_callback_t *p_data_cback, u
             goto clean_and_return_1;
         }
     }
+    nxpesehal_ctrl.isRFrame = 0;
+    nxpesehal_ctrl.cmd_rsp_state = STATE_IDLE;
 
     wSpmStatus = phNxpEseP61_SPM_ConfigPwr(SPM_POWER_PRIO_ENABLE);
     if ( wSpmStatus != SPMSTATUS_SUCCESS)
@@ -480,6 +502,9 @@ ESESTATUS phNxpEseP61_Transceive(uint16_t data_len, const uint8_t *p_data)
     {
         nxpesehal_ctrl.halStatus = ESE_STATUS_BUSY;
         status = phNxpEseP61_ProcessData(data_len, (uint8_t *)p_data);
+        nxpesehal_ctrl.cmd_rsp_state = STATE_TRANS_ONGOING;
+        NXPLOG_SPIHAL_D("%s state = STATE_TRANS_ONGOING", __FUNCTION__);
+
         if (ESESTATUS_SUCCESS != status)
         {
             NXPLOG_SPIHAL_E(" %s phNxpEseP61_ProcessData- Failed \n", __FUNCTION__);
@@ -697,7 +722,16 @@ ESESTATUS phNxpEseP61_read(void)
         NXPLOG_SPIHAL_E("Response timer not started!!!");
         return ESESTATUS_FAILED;
     }
-
+#if(NFC_NXP_ESE_VER == JCOP_VER_3_2)
+    if(nxpesehal_ctrl.wtx_counter_value != 0)
+    {
+        if(nxpesehal_ctrl.wtx_counter == nxpesehal_ctrl.wtx_counter_value)
+        {
+            NXPLOG_SPIHAL_E("Avoid read pending on wtx_counter reached!!!");
+            return status;
+        }
+    }
+#endif
     /* call read pending */
     status = phTmlEse_Read(
             nxpesehal_ctrl.p_read_buff,
@@ -728,10 +762,28 @@ ESESTATUS phNxpEseP61_read(void)
 STATIC void phNxpEseP61_WaitForAckCb(uint32_t timerId, void *pContext)
 {
     NXPLOG_SPIHAL_E("%s TIMEOUT !!!", __FUNCTION__);
+    bool_t wtx_flag = FALSE;
     UNUSED(timerId);
     UNUSED(pContext);
 
-    if(nxpesehal_ctrl.retry_cnt < 3)
+#if(NFC_NXP_ESE_VER == JCOP_VER_3_2)
+    if(nxpesehal_ctrl.wtx_counter_value != 0)
+    {
+        wtx_flag = TRUE;
+    }
+#endif
+    if(wtx_flag)
+    {
+        if(nxpesehal_ctrl.wtx_counter == nxpesehal_ctrl.wtx_counter_value)
+        {
+            nxpesehal_ctrl.wtx_counter = 0;
+            phNxpEseP61_SPM_EnablePwr();
+            NXPLOG_SPIHAL_D("Enable power to P61 and  reset wtx count !!! ");
+            phNxpEseP61_Action(ESESTATUS_FAILED, 0, NULL);
+            return;
+        }
+    }
+    if (nxpesehal_ctrl.retry_cnt < 3)
     {
         nxpesehal_ctrl.retry_cnt++;
         phNxpEseP61_read();

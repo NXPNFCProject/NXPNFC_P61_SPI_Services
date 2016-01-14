@@ -38,7 +38,7 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_MULTILIB := both
 LOCAL_SRC_FILES := -Wall $(call all-c-files-under, .)  $(call all-cpp-files-under, .)
 
-LOCAL_ANDROID_M := TRUE
+LOCAL_ANDROID_M := FALSE
 ifeq ($(LOCAL_ANDROID_M),FALSE)
 LOCAL_SHARED_LIBRARIES := liblog libcutils libhardware_legacy libdl libstlport
 LOCAL_C_INCLUDES += \
@@ -72,5 +72,5 @@ JCOP_VER_3_3 := 3
 LOCAL_CFLAGS += -DJCOP_VER_3_1=$(JCOP_VER_3_1)
 LOCAL_CFLAGS += -DJCOP_VER_3_2=$(JCOP_VER_3_2)
 LOCAL_CFLAGS += -DJCOP_VER_3_3=$(JCOP_VER_3_3)
-LOCAL_CFLAGS += -DNFC_NXP_ESE_VER=$(JCOP_VER_3_2)
+LOCAL_CFLAGS += -DNFC_NXP_ESE_VER=$(JCOP_VER_3_3)
 include $(BUILD_SHARED_LIBRARY)

@@ -50,9 +50,13 @@ public final class EseSpiAdapter {
     // Guarded by SpiAdapter.class
     static boolean sIsInitialized = false;
 
+    /*Initial/Default SPI service adapter state OFF*/
     public static final int STATE_OFF = 1;
+    /*When SPI service adapter state is ON*/
     public static final int STATE_ON = 3;
+    /*When SPI service adapter state is TURNING_ON*/
     public static final int STATE_TURNING_ON = 2;
+    /*When SPI service adapter state is TURNING_OFF*/
     public static final int STATE_TURNING_OFF = 4;
 
 
@@ -71,10 +75,10 @@ public final class EseSpiAdapter {
     /**
      * Used as an int extra field in {@link #ACTION_ADAPTER_STATE_CHANGED}
      * intents to request the current power state. Possible values are:
-     * {@link #STATE_OFF},
-     * {@link #STATE_TURNING_ON},
-     * {@link #STATE_ON},
-     * {@link #STATE_TURNING_OFF}
+     * Initial/Default SPI service adapter state OFF=1  {@link #STATE_OFF},
+     * When SPI service adapter state is ON=3 {@link #STATE_TURNING_ON},
+     * When SPI service adapter state is TURNING_ON=2 {@link #STATE_ON},
+     * When SPI service adapter state is TURNING_OFF=4 {@link #STATE_TURNING_OFF}
      */
     public static final String EXTRA_ADAPTER_STATE = "android.ese.spi.extra.ADAPTER_STATE";
 
