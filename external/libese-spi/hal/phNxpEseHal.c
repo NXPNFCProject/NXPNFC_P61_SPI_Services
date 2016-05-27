@@ -812,11 +812,13 @@ STATIC void phNxpEseP61_PrioSessionTimeout(uint32_t timerId, void *pContext)
     NXPLOG_SPIHAL_E("%s TIMEOUT !!!", __FUNCTION__);
     UNUSED(timerId);
     UNUSED(pContext);
+#ifdef SPM_INTEGRATED
     status = phNxpEseP61_SPM_ConfigPwr(SPM_POWER_PRIO_DISABLE);
     if(status != ESESTATUS_SUCCESS)
     {
         NXPLOG_SPIHAL_E("%s phNxpEseP61_SPM_ConfigPwr: spi prio timeout failed", __FUNCTION__);
     }
+#endif
 }
 /******************************************************************************
  * Function         phNxpEseP61_read_complete

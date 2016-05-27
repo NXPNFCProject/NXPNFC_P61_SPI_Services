@@ -26,6 +26,7 @@
 #include <phNxpSpiHal_utils.h>
 #include <phNxpEseHal.h>
 #include <phNxpEseProtocol.h>
+#include "phNxpEseP61_Spm.h"
 /*
  * Duration of Timer to wait after sending an Spi packet
  */
@@ -585,7 +586,11 @@ static void phTmlEse_CleanUp(void)
 {
     if (NULL != gpphTmlEse_Context->pDevHandle)
     {
-        phTmlEse_IoCtl(phTmlEse_e_ResetDevice, 2);
+        #ifdef SPM_INTEGRATED
+            phNxpEseP61_SPM_ConfigPwr(SPM_POWER_RESET);
+        #else
+            phTmlEse_IoCtl(phTmlEse_e_ResetDevice, 2);
+        #endif
         gpphTmlEse_Context->bThreadDone = 0;
     }
     sem_destroy(&gpphTmlEse_Context->rxSemaphore);

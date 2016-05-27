@@ -360,7 +360,6 @@ static jbyteArray nativeEseManager_doTransceive(JNIEnv *e, jobject obj, jbyteArr
     ALOGD ("%s: Exit", __FUNCTION__);
     return result.release();
 }
-}
 #else
 static jbyteArray nativeEseManager_doTransceive(JNIEnv *e, jobject obj, jbyteArray data)
 {

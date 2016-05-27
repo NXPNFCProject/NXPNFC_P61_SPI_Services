@@ -20,8 +20,8 @@
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <linux/p61.h>
 #include "phNxpEseP61_Spm.h"
+#include "phTmlEse_spi.h"
 #include <phNxpEseHal.h>
 #include <phNxpEseProtocol.h>
 
@@ -41,6 +41,7 @@ static int fd_p61_device = -1;
 
 extern phNxpEseP61_Control_t nxpesehal_ctrl;
 
+#define MAX_ESE_ACCESS_TIME_OUT_MS 2000 /*2 seconds*/
 /*********************** Function Declaration**********************************/
 static spm_state_t phNxpEseP61_StateMaping(p61_access_state_t p61_current_state);
 /**
@@ -130,6 +131,14 @@ SPMSTATUS phNxpEseP61_SPM_ConfigPwr(spm_power_t arg)
         phNxpEseP61_SemWait(&nxpesehal_ctrl.cmd_rsp_ack);
         ALOGD("%s : After APDU response received perform ioctl", __FUNCTION__);
     }
+    if (SPM_POWER_ENABLE == arg)
+    {
+        if (phNxpEseP61_SPM_GetAccess(MAX_ESE_ACCESS_TIME_OUT_MS) != SPMSTATUS_SUCCESS)
+        {
+            NXPLOG_SPIHAL_D("%s phTmlEse_get_ese_access timeout", __FUNCTION__);
+            return ESESTATUS_BUSY;
+        }
+    }
 
     ret = ioctl(fd_p61_device, P61_SET_SPM_PWR, arg);
 
@@ -144,6 +153,13 @@ SPMSTATUS phNxpEseP61_SPM_ConfigPwr(spm_power_t arg)
             ALOGE("%s : failed errno = 0x%x", __FUNCTION__, errno);
             wSpmStatus = SPMSTATUS_FAILED;
         }
+        else
+        {
+            if (phNxpEseP61_SPM_RelAccess() != SPMSTATUS_SUCCESS)
+            {
+                NXPLOG_SPIHAL_D(" %s phNxpEseP61_SPM_RelAccess : failed \n", __FUNCTION__);
+            }
+        }
     }
     break;
     case SPM_POWER_ENABLE:
@@ -157,6 +173,10 @@ SPMSTATUS phNxpEseP61_SPM_ConfigPwr(spm_power_t arg)
                 if ( wSpmStatus != SPMSTATUS_SUCCESS)
                 {
                     ALOGE(" %s : phNxpEseP61_SPM_GetPwrState Failed", __FUNCTION__);
+                    if (phNxpEseP61_SPM_RelAccess() != SPMSTATUS_SUCCESS)
+                    {
+                        NXPLOG_SPIHAL_D(" %s phNxpEseP61_SPM_RelAccess : failed \n", __FUNCTION__);
+                    }
                     return wSpmStatus;
                 }
                 else
@@ -175,6 +195,13 @@ SPMSTATUS phNxpEseP61_SPM_ConfigPwr(spm_power_t arg)
             else
             {
                 wSpmStatus = SPMSTATUS_FAILED;
+            }
+            if(wSpmStatus != SPMSTATUS_SUCCESS)
+            {
+                if (phNxpEseP61_SPM_RelAccess() != SPMSTATUS_SUCCESS)
+                {
+                    NXPLOG_SPIHAL_D(" %s phNxpEseP61_SPM_RelAccess : failed \n", __FUNCTION__);
+                }
             }
         }
     }
@@ -352,7 +379,7 @@ SPMSTATUS phNxpEseP61_SPM_GetState(spm_state_t *current_state)
         ALOGE("%s : failed Invalid argument", __FUNCTION__);
         return SPMSTATUS_FAILED;
     }
-    ret = ioctl(fd_p61_device, P61_GET_SPM_STATUS, (int32_t )&p61_current_state);
+    ret = ioctl(fd_p61_device, P61_GET_SPM_STATUS, (uintptr_t)&p61_current_state);
     if(ret < 0)
     {
         ALOGE("%s : failed errno = 0x%x", __FUNCTION__, errno);
@@ -455,4 +482,62 @@ static spm_state_t phNxpEseP61_StateMaping(p61_access_state_t p61_current_state)
     }
 
     return current_spm_state;
+}
+
+/*******************************************************************************
+**
+** Function         phTmlEse_get_ese_access
+**
+** Description
+**
+** Parameters       timeout - timeout to wait for ese access
+**
+** Returns          success or failure
+**
+*******************************************************************************/
+SPMSTATUS phNxpEseP61_SPM_GetAccess(long timeout)
+{
+    int ret;
+    SPMSTATUS status = SPMSTATUS_SUCCESS;
+#if((NFC_NXP_ESE_VER == JCOP_VER_3_1) || (NFC_NXP_ESE_VER == JCOP_VER_3_2))
+    NXPLOG_TML_D("phTmlEse_get_ese_access(), timeout  %ld", timeout);
+
+    ret = ioctl((int32_t)fd_p61_device, P61_GET_ESE_ACCESS, timeout);
+    if (ret < 0)
+    {
+        if (ret == -EBUSY)
+            status = SPMSTATUS_DEVICE_BUSY;
+        else
+            status = SPMSTATUS_FAILED;
+    }
+    NXPLOG_TML_D("phTmlEse_get_ese_access(), exit  %d", status);
+#endif
+    return status;
+}
+/*******************************************************************************
+**
+** Function         phNxpEseP61_SPM_RelAccess
+**
+** Description
+**
+** Parameters       timeout - Releases the ese access
+**
+** Returns          success or failure
+**
+*******************************************************************************/
+SPMSTATUS phNxpEseP61_SPM_RelAccess(void)
+{
+    int ret;
+    SPMSTATUS status = SPMSTATUS_SUCCESS;
+#if((NFC_NXP_ESE_VER == JCOP_VER_3_1) || (NFC_NXP_ESE_VER == JCOP_VER_3_2))
+    NXPLOG_TML_D("phNxpEseP61_SPM_RelAccess(): enter");
+
+    ret = ioctl(fd_p61_device, P61_SET_SPM_PWR, 5);
+    if (ret < 0)
+    {
+        status = SPMSTATUS_FAILED;
+    }
+    NXPLOG_TML_D("phNxpEseP61_SPM_RelAccess(): exit  %d", status);
+#endif
+    return status;
 }

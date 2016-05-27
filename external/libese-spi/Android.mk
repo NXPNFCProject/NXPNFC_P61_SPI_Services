@@ -38,7 +38,7 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_MULTILIB := both
 LOCAL_SRC_FILES := -Wall $(call all-c-files-under, .)  $(call all-cpp-files-under, .)
 
-LOCAL_ANDROID_M := FALSE
+LOCAL_ANDROID_M := TRUE
 ifeq ($(LOCAL_ANDROID_M),FALSE)
 LOCAL_SHARED_LIBRARIES := liblog libcutils libhardware_legacy libdl libstlport
 LOCAL_C_INCLUDES += \
@@ -49,6 +49,7 @@ LOCAL_C_INCLUDES += \
         $(LOCAL_PATH)/hal \
         $(LOCAL_PATH)/log \
         $(LOCAL_PATH)/tml \
+        $(LOCAL_PATH)/spm \
 
 else
 LOCAL_SHARED_LIBRARIES := liblog libcutils libhardware_legacy libdl
@@ -59,6 +60,7 @@ LOCAL_C_INCLUDES += \
         $(LOCAL_PATH)/hal \
         $(LOCAL_PATH)/log \
         $(LOCAL_PATH)/tml \
+        $(LOCAL_PATH)/spm \
 
 endif
 

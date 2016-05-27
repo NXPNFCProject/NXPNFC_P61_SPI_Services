@@ -21,6 +21,25 @@
 /* Basic type definitions */
 #include <phEseTypes.h>
 #include <phTmlEse.h>
+#define P61_MAGIC 0xEA
+#define P61_SET_PWR _IOW(P61_MAGIC, 0x01, unsigned int)
+#define P61_SET_DBG _IOW(P61_MAGIC, 0x02, unsigned int)
+#define P61_SET_POLL _IOW(P61_MAGIC, 0x03, unsigned int)
+/*
+ * SPI Request NFCC to enable p61 power, only in param
+ * Only for SPI
+ * level 1 = Enable power
+ * level 0 = Disable power
+ */
+#define P61_SET_SPM_PWR    _IOW(P61_MAGIC, 0x04, unsigned int)
+
+/* SPI or DWP can call this ioctl to get the current
+ * power state of P61
+ *
+*/
+#define P61_GET_SPM_STATUS    _IOR(P61_MAGIC, 0x05, unsigned int)
+
+#define P61_GET_ESE_ACCESS    _IOW(P61_MAGIC, 0x07, unsigned int)
 
 /* Function declarations */
 void phTmlEse_spi_close(void *pDevHandle);

@@ -31,7 +31,6 @@
 #include <phEseStatus.h>
 #include <string.h>
 #include <phNxpSpiHal_utils.h>
-#include <linux/p61.h>
 
 #define NORMAL_MODE_HEADER_LEN      3
 #define NORMAL_MODE_LEN_OFFSET      2

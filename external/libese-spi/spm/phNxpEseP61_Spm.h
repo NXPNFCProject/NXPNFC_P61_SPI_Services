@@ -147,5 +147,32 @@ SPMSTATUS phNxpEseP61_SPM_GetState(spm_state_t *current_state);
  */
 
 SPMSTATUS phNxpEseP61_SPM_ResetPwr(void);
+/**
+ * \brief This function request to the nfc i2c driver
+ * to get lock of p61.
+  *
+ * \param[in]       timeout - timeout to wait for ese access
+ * \param[out]      none
+ *
+ * \retval SPMSTATUS_SUCCESS on Success #if nfc i2c driver
+ *        successfully provides lock of P61.
+ *        SPMSTATUS_FAILED - if timeout occured \n
+ */
+
+SPMSTATUS phNxpEseP61_SPM_GetAccess(long timeout);
+
+/**
+ * \brief This function request to the nfc i2c driver
+ * to release p61 lock.
+  *
+ * \param[in]       none
+ * \param[out]      none
+ *
+ * \retval SPMSTATUS_SUCCESS on Success #if nfc i2c driver
+ *        successfully provides lock of P61.
+ *        SPMSTATUS_FAILED - if reset request is failed \n
+ */
+
+SPMSTATUS phNxpEseP61_SPM_RelAccess(void);
 #endif  /*  _PHNXPESEP61_SPM_H    */
 /** @} */

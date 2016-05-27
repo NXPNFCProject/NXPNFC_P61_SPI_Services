@@ -101,7 +101,8 @@ typedef enum
     phTmlEse_e_Invalid = 0,
     phTmlEse_e_ResetDevice = PH_TMLESE_RESETDEVICE, /* Reset the device */
     phTmlEse_e_EnableLog, /* Enable the spi driver logs */
-    phTmlEse_e_EnablePollMode /* Enable the polling for SPI */
+    phTmlEse_e_EnablePollMode, /* Enable the polling for SPI */
+    phTmlEse_e_GetEseAccess, /* get the bus access in specified timeout */
 } phTmlEse_ControlCode_t ;  /* Control code for IOCTL call */
 
 /*
