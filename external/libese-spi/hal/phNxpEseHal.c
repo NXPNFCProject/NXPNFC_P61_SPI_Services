@@ -21,6 +21,7 @@
 #include <phNxpLog.h>
 #include <phNxpEseProtocol.h>
 #include <phNxpConfig.h>
+#include <NXP_ESE_FEATURES.h>
 
 /* Macro to enable SPM Module */
 #define SPM_INTEGRATED
@@ -63,7 +64,7 @@ ESESTATUS phNxpEseP61_open( ese_stack_data_callback_t *p_data_cback)
     phOsalEse_Config_t tOsalConfig;
     phTmlEse_Config_t tTmlConfig;
     ESESTATUS wConfigStatus = ESESTATUS_SUCCESS;
-    unsigned long int num = 0;
+    unsigned long int num, tpm_enable = 0;
 #ifdef SPM_INTEGRATED
     SPMSTATUS wSpmStatus = SPMSTATUS_SUCCESS;
     spm_state_t current_spm_state = SPM_STATE_INVALID;
@@ -79,7 +80,6 @@ ESESTATUS phNxpEseP61_open( ese_stack_data_callback_t *p_data_cback)
     memset(&tOsalConfig, 0x00, sizeof(tOsalConfig));
     memset(&tTmlConfig, 0x00, sizeof(tTmlConfig));
 
-#if(NFC_NXP_ESE_VER == JCOP_VER_3_2)
     if (GetNxpNumValue (NAME_NXP_WTX_COUNT_VALUE, &num, sizeof(num)))
     {
         nxpesehal_ctrl.wtx_counter_value = num;
@@ -90,11 +90,38 @@ ESESTATUS phNxpEseP61_open( ese_stack_data_callback_t *p_data_cback)
         nxpesehal_ctrl.wtx_counter_value = 0;
         NXPLOG_SPIHAL_E("Wtx_counter not defined in config file - %lu",num);
     }
+
+    if (GetNxpNumValue (NAME_NXP_TP_MEASUREMENT, &tpm_enable, sizeof(tpm_enable)))
+    {
+        NXPLOG_SPIHAL_E("SPI Throughput measurement enable/disable read from config file - %lu",num);
+    }
+    else
+    {
+        NXPLOG_SPIHAL_E("SPI Throughput not defined in config file - %lu",num);
+    }
+
+#if(NXP_POWER_SCHEME_SUPPORT == TRUE)
+    if (GetNxpNumValue (NAME_NXP_POWER_SCHEME, &num, sizeof(num)))
+    {
+        nxpesehal_ctrl.pwr_scheme = num;
+        NXPLOG_SPIHAL_E("Power scheme read from config file - %lu",num);
+    }
+    else
 #endif
+    {
+        nxpesehal_ctrl.pwr_scheme = PN67T_POWER_SCHEME;
+        NXPLOG_SPIHAL_E("Power scheme not defined in config file - %lu",num);
+    }
     /* make sequence counter 1*/
     nxpesehal_ctrl.seq_counter = 0x01;
+#if(NFC_NXP_ESE_VER == JCOP_VER_4_0)
+    nxpesehal_ctrl.recv_iseq_counter = 0x01;
+    nxpesehal_ctrl.initiator_state = PCD_INITIATOR;
+#endif
     nxpesehal_ctrl.isRFrame = 0;
     nxpesehal_ctrl.cmd_rsp_state = STATE_IDLE;
+    nxpesehal_ctrl.first_transceive_success = FALSE;
+    nxpesehal_ctrl.last_sent_sframe_type = 0xFF;
     /* reset config cache */
     resetNxpConfig();
 
@@ -128,6 +155,13 @@ ESESTATUS phNxpEseP61_open( ese_stack_data_callback_t *p_data_cback)
         NXPLOG_SPIHAL_E("phNxpEseP61_SPM_Init Failed");
         wConfigStatus = ESESTATUS_FAILED;
         goto clean_and_return_2;
+    }
+    wSpmStatus = phNxpEseP61_SPM_SetPwrScheme(nxpesehal_ctrl.pwr_scheme);
+    if( wSpmStatus != SPMSTATUS_SUCCESS)
+    {
+        ALOGE(" %s : phNxpEseP61_SPM_SetPwrScheme Failed", __FUNCTION__);
+        wConfigStatus = ESESTATUS_FAILED;
+        goto clean_and_return_1;
     }
 
     wSpmStatus = phNxpEseP61_SPM_GetState(&current_spm_state);
@@ -214,7 +248,16 @@ ESESTATUS phNxpEseP61_open( ese_stack_data_callback_t *p_data_cback)
         goto clean_and_return;
     }
     wConfigStatus = phTmlEse_IoCtl(phTmlEse_e_EnablePollMode, 1);
-
+    if(tpm_enable)
+    {
+       wConfigStatus =  phTmlEse_IoCtl(phTmlEse_e_EnableThroughputMeasurement, 0);
+       if (wConfigStatus != ESESTATUS_SUCCESS)
+       {
+           NXPLOG_SPIHAL_E("phTmlEse_IoCtl Failed");
+           nxpesehal_ctrl.p_ese_stack_data_cback = NULL;
+           goto clean_and_return;
+       }
+    }
     if (wConfigStatus != ESESTATUS_SUCCESS)
     {
         NXPLOG_SPIHAL_E("phTmlEse_IoCtl Failed");
@@ -274,7 +317,7 @@ ESESTATUS phNxpEseP61_openPrioSession(ese_stack_data_callback_t *p_data_cback, u
     phOsalEse_Config_t tOsalConfig;
     phTmlEse_Config_t tTmlConfig;
     ESESTATUS wConfigStatus = ESESTATUS_SUCCESS;
-    unsigned long int num = 0;
+    unsigned long int num, tpm_enable = 0;
 #ifdef SPM_INTEGRATED
     SPMSTATUS wSpmStatus = SPMSTATUS_SUCCESS;
     spm_state_t current_spm_state = SPM_STATE_INVALID;
@@ -282,7 +325,6 @@ ESESTATUS phNxpEseP61_openPrioSession(ese_stack_data_callback_t *p_data_cback, u
     memset(&nxpesehal_ctrl, 0x00, sizeof(nxpesehal_ctrl));
     memset(&tOsalConfig, 0x00, sizeof(tOsalConfig));
     memset(&tTmlConfig, 0x00, sizeof(tTmlConfig));
-#if(NFC_NXP_ESE_VER == JCOP_VER_3_2)
     if (GetNxpNumValue (NAME_NXP_WTX_COUNT_VALUE, &num, sizeof(num)))
     {
         nxpesehal_ctrl.wtx_counter_value = num;
@@ -293,9 +335,31 @@ ESESTATUS phNxpEseP61_openPrioSession(ese_stack_data_callback_t *p_data_cback, u
         nxpesehal_ctrl.wtx_counter_value = 0;
         NXPLOG_SPIHAL_E("Wtx_counter not defined in config file - %lu",num);
     }
+#if(NXP_POWER_SCHEME_SUPPORT == TRUE)
+    if (GetNxpNumValue (NAME_NXP_POWER_SCHEME, &num, sizeof(num)))
+    {
+        nxpesehal_ctrl.pwr_scheme = num;
+        NXPLOG_SPIHAL_E("Power scheme read from config file - %lu",num);
+    }
+    else
 #endif
+    {
+        nxpesehal_ctrl.pwr_scheme = PN67T_POWER_SCHEME;
+        NXPLOG_SPIHAL_E("Power scheme not defined in config file - %lu",num);
+    }
+    if (GetNxpNumValue (NAME_NXP_TP_MEASUREMENT, &tpm_enable, sizeof(tpm_enable)))
+    {
+        NXPLOG_SPIHAL_E("SPI Throughput measurement enable/disable read from config file - %lu",num);
+    }
+    else
+    {
+        NXPLOG_SPIHAL_E("SPI Throughput not defined in config file - %lu",num);
+    }
     /* make sequence counter 1*/
     nxpesehal_ctrl.seq_counter = 0x01;
+#if(NFC_NXP_ESE_VER == JCOP_VER_4_0)
+    nxpesehal_ctrl.recv_iseq_counter = 0x01;
+#endif
     /* reset config cache */
     resetNxpConfig();
 
@@ -334,7 +398,13 @@ ESESTATUS phNxpEseP61_openPrioSession(ese_stack_data_callback_t *p_data_cback, u
         wConfigStatus = ESESTATUS_FAILED;
         goto clean_and_return_2;
     }
-
+    wSpmStatus = phNxpEseP61_SPM_SetPwrScheme(nxpesehal_ctrl.pwr_scheme);
+    if( wSpmStatus != SPMSTATUS_SUCCESS)
+    {
+        ALOGE(" %s : phNxpEseP61_SPM_SetPwrScheme Failed", __FUNCTION__);
+        wConfigStatus = ESESTATUS_FAILED;
+        goto clean_and_return_1;
+    }
     wSpmStatus = phNxpEseP61_SPM_GetState(&current_spm_state);
     if ( wSpmStatus != SPMSTATUS_SUCCESS)
     {
@@ -353,7 +423,8 @@ ESESTATUS phNxpEseP61_openPrioSession(ese_stack_data_callback_t *p_data_cback, u
     }
     nxpesehal_ctrl.isRFrame = 0;
     nxpesehal_ctrl.cmd_rsp_state = STATE_IDLE;
-
+    nxpesehal_ctrl.first_transceive_success = FALSE;
+    nxpesehal_ctrl.last_sent_sframe_type = 0xFF;
     wSpmStatus = phNxpEseP61_SPM_ConfigPwr(SPM_POWER_PRIO_ENABLE);
     if ( wSpmStatus != SPMSTATUS_SUCCESS)
     {
@@ -413,7 +484,16 @@ ESESTATUS phNxpEseP61_openPrioSession(ese_stack_data_callback_t *p_data_cback, u
         goto clean_and_return;
     }
     wConfigStatus = phTmlEse_IoCtl(phTmlEse_e_EnablePollMode, 1);
-
+    if(tpm_enable)
+    {
+       wConfigStatus =  phTmlEse_IoCtl(phTmlEse_e_EnableThroughputMeasurement, 0);
+       if (wConfigStatus != ESESTATUS_SUCCESS)
+       {
+           NXPLOG_SPIHAL_E("phTmlEse_IoCtl Failed");
+           nxpesehal_ctrl.p_ese_stack_data_cback = NULL;
+           goto clean_and_return;
+       }
+    }
     if (wConfigStatus != ESESTATUS_SUCCESS)
     {
         NXPLOG_SPIHAL_E("phTmlEse_IoCtl Failed");
@@ -534,18 +614,30 @@ ESESTATUS phNxpEseP61_reset(void)
 
     /* TBD : Call the ioctl to reset the P61 */
     NXPLOG_SPIHAL_D(" %s Enter \n", __FUNCTION__);
+#if(NFC_NXP_ESE_VER == JCOP_VER_4_0)
+    /* Resetting the sequence counter to zero (XORed while sending frame hence put as 0x01)*/
+    nxpesehal_ctrl.seq_counter = 0x01;
+    nxpesehal_ctrl.recv_iseq_counter = 0x01;
+#endif
+    NXPLOG_SPIHAL_D("seq counter reset value = %d",nxpesehal_ctrl.seq_counter);
+#ifdef SPM_INTEGRATED
+    if(nxpesehal_ctrl.pwr_scheme == PN80T_EXT_PMU_SCHEME)
+    {
+        status = phNxpEseP61_SendSFrame(INTF_RESET_REQ, 0, NULL);
+    }
+    else
+    {
+        wSpmStatus = phNxpEseP61_SPM_ConfigPwr(SPM_POWER_RESET);
+        if ( wSpmStatus != SPMSTATUS_SUCCESS)
+        {
+            NXPLOG_SPIHAL_E("phNxpEseP61_SPM_ConfigPwr: reset Failed");
+            status = ESESTATUS_FAILED;
+        }
+    }
+#else
     /* if arg ==2 (hard reset)
      * if arg ==1 (soft reset)
      */
-
-#ifdef SPM_INTEGRATED
-    wSpmStatus = phNxpEseP61_SPM_ConfigPwr(SPM_POWER_RESET);
-    if ( wSpmStatus != SPMSTATUS_SUCCESS)
-    {
-        NXPLOG_SPIHAL_E("phNxpEseP61_SPM_ConfigPwr: reset Failed");
-        status = ESESTATUS_FAILED;
-    }
-#else
     status = phTmlEse_IoCtl(phTmlEse_e_ResetDevice, 2);
     if (status != ESESTATUS_SUCCESS)
     {
@@ -554,6 +646,147 @@ ESESTATUS phNxpEseP61_reset(void)
 #endif
 
     NXPLOG_SPIHAL_D(" %s Exit \n", __FUNCTION__);
+    return status;
+}
+/******************************************************************************
+ * Function         phNxpEse_resetJcopUpdate
+ *
+ * Description      This function reset the ESE interface during JCOP Update
+  *
+ * Returns          Always return ESESTATUS_SUCCESS (0).
+ *
+ ******************************************************************************/
+ESESTATUS phNxpEse_resetJcopUpdate(void)
+{
+    ESESTATUS status = ESESTATUS_SUCCESS;
+
+#ifdef SPM_INTEGRATED
+    SPMSTATUS wSpmStatus = SPMSTATUS_SUCCESS;
+    unsigned long int num = 0;
+#endif
+
+    /* TBD : Call the ioctl to reset the P61 */
+    NXPLOG_SPIHAL_D(" %s Enter \n", __FUNCTION__);
+#if(NFC_NXP_ESE_VER == JCOP_VER_4_0)
+    /* Resetting the sequence counter to zero (XORed while sending frame hence put as 0x01)*/
+    nxpesehal_ctrl.seq_counter = 0x01;
+    nxpesehal_ctrl.recv_iseq_counter = 0x01;
+#endif
+    NXPLOG_SPIHAL_D("seq counter reset value = %d",nxpesehal_ctrl.seq_counter);
+
+#ifdef SPM_INTEGRATED
+#if (NXP_POWER_SCHEME_SUPPORT == TRUE)
+    if (GetNxpNumValue (NAME_NXP_POWER_SCHEME, (void*)&num, sizeof(num)))
+     {
+        if((num == 1) || (num == 2))
+        {
+            NXPLOG_SPIHAL_D(" %s Call Config Pwr Reset \n", __FUNCTION__);
+            wSpmStatus = phNxpEseP61_SPM_ConfigPwr(SPM_POWER_RESET);
+            if ( wSpmStatus != SPMSTATUS_SUCCESS)
+            {
+                NXPLOG_SPIHAL_E("phNxpEse_resetJcopUpdate: reset Failed");
+                status = ESESTATUS_FAILED;
+            }
+        }
+        else if(num == 3)
+        {
+            NXPLOG_SPIHAL_D(" %s Call P73 ISO Reset \n", __FUNCTION__);
+            wSpmStatus = phNxpEseP73_ISOreset();
+            if ( wSpmStatus != SPMSTATUS_SUCCESS)
+            {
+                NXPLOG_SPIHAL_E("phNxpEse_resetJcopUpdate: ISO reset Failed");
+                status = ESESTATUS_FAILED;
+            }
+        }
+        else
+        {
+            NXPLOG_SPIHAL_D(" %s Invalid Power scheme \n", __FUNCTION__);
+        }
+     }
+#else
+    {
+        wSpmStatus = phNxpEseP61_SPM_ConfigPwr(SPM_POWER_RESET);
+        if ( wSpmStatus != SPMSTATUS_SUCCESS)
+        {
+            NXPLOG_SPIHAL_E("phNxpEseP61_SPM_ConfigPwr: reset Failed");
+            status = ESESTATUS_FAILED;
+        }
+    }
+#endif
+#else
+    /* if arg ==2 (hard reset)
+     * if arg ==1 (soft reset)
+     */
+    status = phTmlEse_IoCtl(phTmlEse_e_ResetDevice, 2);
+    if (status != ESESTATUS_SUCCESS)
+    {
+        NXPLOG_SPIHAL_E("phNxpEse_resetJcopUpdate Failed");
+    }
+#endif
+
+    NXPLOG_SPIHAL_D(" %s Exit \n", __FUNCTION__);
+    return status;
+}
+/******************************************************************************
+ * Function         phNxpEseP61_EndOfApdu
+ *
+ * Description      This function is used to send S-frame to indicate END_OF_APDU
+  *
+ * Returns          Always return ESESTATUS_SUCCESS (0).
+ *
+ ******************************************************************************/
+ESESTATUS phNxpEseP61_EndOfApdu(void)
+{
+	ESESTATUS status = ESESTATUS_SUCCESS;
+#if(NXP_ESE_END_OF_SESSION == TRUE)
+    status = phNxpEseP61_SendSFrame(PROP_END_APDU_REQ, 0, NULL);
+#endif
+    return status;
+}
+
+/******************************************************************************
+ * Function         phNxpEseP61_SPIIntfReset
+ *
+ * Description      This function is used to do interface level reset of P73
+  *
+ * Returns          Always return ESESTATUS_SUCCESS (0).
+ *
+ ******************************************************************************/
+ESESTATUS phNxpEseP61_SPIIntfReset(void)
+{
+    ESESTATUS status = ESESTATUS_SUCCESS;
+    /* Resetting the sequence counter to zero (XORed while sending frame hence put as 0x01)*/
+    if((nxpesehal_ctrl.pwr_scheme == PN80T_EXT_PMU_SCHEME) ||
+      (nxpesehal_ctrl.pwr_scheme == PN80T_LEGACY_SCHEME))
+    {
+        nxpesehal_ctrl.seq_counter = 0x01;
+        nxpesehal_ctrl.recv_iseq_counter = 0x01;
+        status = phNxpEseP61_SendSFrame(INTF_RESET_REQ, 0, NULL);
+    }
+    else
+    {
+        NXPLOG_SPIHAL_E("phNxpEseP61_SPIIntfReset is not supported");
+    }
+    return status;
+}
+
+/******************************************************************************
+ * Function         phNxpEseP73_ISOreset
+ *
+ * Description      This function is used to hard reset the P73 using ISO RST feature
+  *
+ * Returns          Always return ESESTATUS_SUCCESS (0).
+ *
+ ******************************************************************************/
+ESESTATUS phNxpEseP73_ISOreset(void)
+{
+	ESESTATUS status = ESESTATUS_SUCCESS;
+
+    status = phTmlEse_IoCtl(phTmlEse_e_P73IsoRst, 6);
+    if (status != ESESTATUS_SUCCESS)
+    {
+        NXPLOG_SPIHAL_E("phNxpEseP61_reset Failed");
+    }
     return status;
 }
 /******************************************************************************
@@ -570,6 +803,9 @@ ESESTATUS phNxpEseP61_close(void)
     ESESTATUS status = ESESTATUS_SUCCESS;
 #ifdef SPM_INTEGRATED
     SPMSTATUS wSpmStatus = SPMSTATUS_SUCCESS;
+#if(NXP_ESE_END_OF_SESSION == TRUE)
+    status = phNxpEseP61_SendSFrame(PROP_END_APDU_REQ, 0, NULL);
+#endif
 #endif
     CONCURRENCY_LOCK();
 
@@ -722,7 +958,6 @@ ESESTATUS phNxpEseP61_read(void)
         NXPLOG_SPIHAL_E("Response timer not started!!!");
         return ESESTATUS_FAILED;
     }
-#if(NFC_NXP_ESE_VER == JCOP_VER_3_2)
     if(nxpesehal_ctrl.wtx_counter_value != 0)
     {
         if(nxpesehal_ctrl.wtx_counter == nxpesehal_ctrl.wtx_counter_value)
@@ -731,7 +966,6 @@ ESESTATUS phNxpEseP61_read(void)
             return status;
         }
     }
-#endif
     /* call read pending */
     status = phTmlEse_Read(
             nxpesehal_ctrl.p_read_buff,
@@ -765,13 +999,10 @@ STATIC void phNxpEseP61_WaitForAckCb(uint32_t timerId, void *pContext)
     bool_t wtx_flag = FALSE;
     UNUSED(timerId);
     UNUSED(pContext);
-
-#if(NFC_NXP_ESE_VER == JCOP_VER_3_2)
     if(nxpesehal_ctrl.wtx_counter_value != 0)
     {
         wtx_flag = TRUE;
     }
-#endif
     if(wtx_flag)
     {
         if(nxpesehal_ctrl.wtx_counter == nxpesehal_ctrl.wtx_counter_value)
@@ -783,12 +1014,14 @@ STATIC void phNxpEseP61_WaitForAckCb(uint32_t timerId, void *pContext)
             return;
         }
     }
+#if(NFC_NXP_ESE_VER != JCOP_VER_4_0)
     if (nxpesehal_ctrl.retry_cnt < 3)
     {
         nxpesehal_ctrl.retry_cnt++;
         phNxpEseP61_read();
     }
     else
+#endif
     {
         nxpesehal_ctrl.retry_cnt = 0;
         phNxpEseP61_Action(ESESTATUS_RESPONSE_TIMEOUT, 0, NULL);
@@ -1059,7 +1292,7 @@ ESESTATUS phNxpEseP61_InternalWriteFrame(uint32_t data_len, const uint8_t *p_dat
 
     /* Start timer */
     status = phOsalEse_Timer_Start(nxpesehal_ctrl.timeoutTimerId,
-            HAL_EXTNS_WRITE_RSP_TIMEOUT,
+            (uint32_t)HAL_EXTNS_WRITE_RSP_TIMEOUT,
             &phNxpEseP61_write_timeout_cb,
             NULL);
     if (ESESTATUS_SUCCESS == status)

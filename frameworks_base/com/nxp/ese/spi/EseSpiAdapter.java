@@ -254,6 +254,28 @@ public final class EseSpiAdapter {
     }
 
     /**
+     * Reset ESE-SPI hardware.
+     *
+     * <p>This call is asynchronous. Listen for
+     * {@link #ACTION_ADAPTER_STATE_CHANGED} broadcasts to find out when the
+     * operation is complete.
+     *
+     * <p>If this returns true, then either ESE-SPI is already on, or
+     * a {@link #ACTION_ADAPTER_STATE_CHANGED} broadcast will be sent
+     * to indicate a state transition. If this returns false, then
+     * there is some problem that prevents an attempt to reset
+     * ESE-SPI.
+     *
+     */
+    public boolean interfaceReset() {
+        try {
+            return eseSpiService.interfaceReset();
+        } catch (RemoteException e) {
+            attemptDeadServiceRecovery(e);
+            return false;
+        }
+    }
+    /**
      * Enable ESE-SPI hardware.
      *
      * <p>This call is asynchronous. Listen for

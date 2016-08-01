@@ -53,7 +53,6 @@ typedef struct time_cal
 static int fd_ese_nfc_sync; /*file descriptor to hold sync driver handle*/
 #endif
 
-
 extern "C"
 {
 #include "phNxpEseHal_Api.h"
@@ -88,13 +87,13 @@ ESESTATUS EseNfcSyncInit(void);
 ESESTATUS EseNfcSyncDeInit(void);
 ESESTATUS SpiReqResourceIoctl(double time_limit);
 ESESTATUS SpiReleaseResourceIoctl(double time_limit);
-int    gGeneralTransceiveTimeout = DEFAULT_GENERAL_TRANS_TIMEOUT;
 void sig_handler(int signo);
 #define NAME_NXP_P61_LS_DEFAULT_INTERFACE "NXP_P61_LS_DEFAULT_INTERFACE"
 #define NAME_NXP_P61_JCOP_DEFAULT_INTERFACE "NXP_P61_JCOP_DEFAULT_INTERFACE"
 #define NAME_NXP_P61_LTSM_DEFAULT_INTERFACE "NXP_P61_LTSM_DEFAULT_INTERFACE"
 
 extern bool Spichannel_init(IChannel_t *swp, seClient_t mHandle);
+void Spichannel_Deinit(seClient_t clientType);
 BOOLEAN isIntialized()
 {
     return isInit;
@@ -451,6 +450,7 @@ static int nativeEseManager_doStartDownload(JNIEnv *e, jobject obj)
         stat = JCDNLD_DeInit();
 
         phNxpEseP61_setIfsc(IFSC_NONJCOPDWNLD);
+        Spichannel_Deinit(JCP_SRVCE);
     }
     gJcopDwnldinProgress = false;
     ALOGD ("%s: Exit; status =0x%X", __FUNCTION__,status);
@@ -479,6 +479,7 @@ bool Spichannel_init(IChannel_t *swp, seClient_t clientType)
         swp->close = close;
         swp->transceive = transceive;
         swp->doeSE_Reset = doeSE_Reset;
+        swp->doeSE_JcopDownLoadReset = doeSE_JcopDownLoadReset;
         stat = true;
     }
     /*Otherwise handle is not available*/
@@ -487,6 +488,21 @@ bool Spichannel_init(IChannel_t *swp, seClient_t clientType)
         ALOGD("Spichannel_init -Already InUse : \n");
     }
 return stat;
+}
+
+/**
+ * \ingroup spi_package
+ * \brief De-Initialize the SPI Channel
+ *
+ * \param[in]       seClient_t
+ *
+ * \retval none.
+ *
+ */
+void Spichannel_Deinit(seClient_t clientType)
+{
+    if(clientType == mHandle)
+        mHandle = DEFAULT;
 }
 
 /**
@@ -505,7 +521,7 @@ static jboolean nativeEseManager_doDeinitialize(JNIEnv *e, jobject obj)
     ESESTATUS status = ESESTATUS_SUCCESS;
     BOOLEAN returnStatus = true;
     ALOGD ("%s: enter", __FUNCTION__);
-    if(status != ESESTATUS_SUCCESS)
+    if(mHandle == SPI_SRVCE)
     {
         returnStatus = false;
     }
@@ -543,6 +559,29 @@ static jboolean nativeEseManager_doReset(JNIEnv *e, jobject obj)
     return returnStatus;
 }
 
+/**
+ * \ingroup spi_package
+ * \brief Reset the chip.
+ *
+ * \param[in]       JNIEnv*
+ * \param[in]       jobject
+ *
+ * \retval True if ok.
+ *
+ */
+static jboolean nativeEseManager_doIntfReset(JNIEnv *e, jobject obj)
+{
+    ESESTATUS status = ESESTATUS_SUCCESS;
+    BOOLEAN returnStatus = true;
+    ALOGD ("%s: enter", __FUNCTION__);
+    if(status != phNxpEseP61_SPIIntfReset())
+    {
+        returnStatus = false;
+    }
+    isInit=true;
+    ALOGD ("%s: Exit, status: %d", __FUNCTION__,status);
+    return returnStatus;
+}
 /**
  * \ingroup spi_package
  * \brief  Abort.
@@ -654,6 +693,7 @@ static JNINativeMethod methods[] = {
         {"doDeinitialize", "()Z", (void*)nativeEseManager_doDeinitialize },
         {"doTransceive", "([B)[B", (void*)nativeEseManager_doTransceive },
         {"doReset", "()Z", (void*)nativeEseManager_doReset },
+        {"doIntfReset", "()Z", (void*)nativeEseManager_doIntfReset },
         {"initializeNativeStructure", "()Z", (void*)nativeEseManager_initNativeStruct},
         {"doStartJcopDownload", "()I", (void*)nativeEseManager_doStartDownload},
         {"doAbort", "()V", (void*)nativeEseManager_doAbort},

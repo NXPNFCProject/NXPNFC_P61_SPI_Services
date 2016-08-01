@@ -127,6 +127,11 @@
 #define ESESTATUS_CRC_ERROR                                    (0x000A)
 
 /*
+ * SOF Error during data transaction with the device
+ */
+#define ESESTATUS_SOF_ERROR                                    (0x000B)
+
+/*
  * Not enough resources Memory, Timer etc(e.g. allocation failed.)
  */
 #define ESESTATUS_INSUFFICIENT_RESOURCES                      (0x000C)
@@ -276,6 +281,12 @@
  */
 
 #define ESESTATUS_FRAME_RESEND_RNAK                          (0x0030)
+
+/*
+ * Resend the last R Frame
+ */
+#define ESESTATUS_FRAME_SEND_R_FRAME                          (0x003B)
+
 /*
  * Unknown error Status Codes
  */
@@ -325,10 +336,23 @@
 
 
 /* S-block requesting a waiting time extension*/
-#define ESESTATUS_WTX_REQ                    (0x00F5)
+#define ESESTATUS_WTX_REQ                              (0x00F5)
 
 /* S-block acknowledging the waiting time extension */
-#define ESESTATUS_WTX_RES                    (0x00F6)
+#define ESESTATUS_WTX_RES                              (0x00F6)
+
+/* S-block interface reset request */
+#define ESESTATUS_RESET_REQ                            (0x00F7)
+
+/* S-block interface reset response */
+#define ESESTATUS_RESET_RES                            (0x00F8)
+
+/* S-block requesting a end of apdu transfer*/
+#define ESESTATUS_END_APDU_REQ                         (0x00F9)
+
+/* S-block acknowledging end of apdu transfer*/
+#define ESESTATUS_END_APDU_RES                         (0x00FA)
+
 /*
  * Shutdown in progress, cannot handle the request at this time.
  */

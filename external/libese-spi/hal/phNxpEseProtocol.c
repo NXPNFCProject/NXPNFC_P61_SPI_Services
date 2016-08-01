@@ -46,7 +46,12 @@ STATIC void phNxpEseP61_UnlockAck(ESESTATUS status);
 STATIC ESESTATUS phNxpEseP61_WaitForAck(void);
 STATIC ESESTATUS phNxpEseP61_InitWaitAck(void);
 STATIC void phNxpEseP61_ResetRecovery(void);
+STATIC ESESTATUS pnNxpEseP61_resetSeqCounter();
+#if(NFC_NXP_ESE_VER == JCOP_VER_4_0)
+STATIC ESESTATUS pnNxpEseP61_sendRFrame(uint8_t seq_no);
+#else
 STATIC ESESTATUS pnNxpEseP61_sendRFrame(void);
+#endif
 STATIC void pnNxpEseP61_resetCmdRspState(ESESTATUS status);
 /**
  * \ingroup spi_t1_protocol_implementation
@@ -82,6 +87,82 @@ ESESTATUS phNxpEseP61_ProcessData(uint32_t data_len, uint8_t *p_data)
     }
     return status;
 
+}
+
+/**
+ * \ingroup spi_t1_protocol_implementation
+ * \brief It is used to send propritery S-block commands \n
+ * Based on the mode, it'll identify the specific prop. command
+ * *
+ * \param[in]       uint8_t
+ * \param[in]       uint32_t
+ * \param[in]       uint8_t*
+ *
+ * \retval On Success ESESTATUS_SUCCESS else proper error code
+ *
+*/
+
+ESESTATUS phNxpEseP61_SendSFrame(uint8_t mode, uint32_t data_len, uint8_t *p_data)
+{
+    ESESTATUS status = ESESTATUS_FAILED;
+    ESESTATUS wstatus = ESESTATUS_FAILED;
+    uint32_t frame_len = 0;
+    uint8_t *p_framebuff = NULL;
+    uint8_t pcb_byte = 0;
+
+    frame_len = (data_len + PH_SCAL_T1_HEADER_LEN + PH_SCAL_T1_CRC_LEN);
+
+    p_framebuff = malloc(frame_len * sizeof(uint8_t));
+    if (NULL == p_framebuff)
+    {
+        NXPLOG_SPIHAL_E("%s Error allocating memory\n", __FUNCTION__);
+        return ESESTATUS_NOT_ENOUGH_MEMORY;
+    }
+
+    /* frame the packet */
+    p_framebuff[0] = 0x00; /* NAD Byte */
+
+    pcb_byte |= PH_SCAL_T1_S_BLOCK; /* PCB */
+    switch(mode)
+    {
+        case RESYNCH_REQ:
+            pcb_byte |= PH_SCAL_T1_S_RESYNCH;
+            break;
+        case INTF_RESET_REQ:
+            pcb_byte |= PH_SCAL_T1_S_RESET;
+            break;
+        case PROP_END_APDU_REQ:
+            pcb_byte |= PH_SCAL_T1_S_END_OF_APDU;
+            break;
+    }
+    nxpesehal_ctrl.last_state = PH_SCAL_S_FRAME;
+    nxpesehal_ctrl.last_sent_sframe_type = mode;
+    p_framebuff[1] = pcb_byte; /* PCB */
+    p_framebuff[2] = data_len;
+    /* store S frame */
+    if(NULL != p_data)
+        memcpy(&(p_framebuff[3]), p_data, data_len);
+    else
+        p_framebuff[3] = 0x00;
+    p_framebuff[frame_len - 1] = phNxpEseP61_ComputeLRC(p_framebuff, 0,
+            (frame_len - 1));
+    NXPLOG_SPIHAL_D("S-Frame PCB: %x\n", p_framebuff[1]);
+    status = phNxpEseP61_WriteFrame(frame_len, p_framebuff);
+    if (ESESTATUS_SUCCESS != status)
+    {
+        NXPLOG_SPIHAL_E("%s Error phNxpEseP61_WriteFrame\n", __FUNCTION__);
+    }
+    else
+    {
+        usleep(50000);
+        wstatus = phNxpEseP61_read();
+        if (ESESTATUS_SUCCESS != wstatus)
+        {
+            NXPLOG_SPIHAL_E("%s phNxpEseP61_read failed \n", __FUNCTION__);
+        }
+    }
+    free(p_framebuff);
+    return status;
 }
 
 /**
@@ -127,7 +208,9 @@ STATIC ESESTATUS phNxpEseP61_SendFrame(uint8_t mode, uint32_t data_len, uint8_t 
         /* make B6 (M) bit high */
         pcb_byte |= PH_SCAL_T1_CHAINING;
     }
-
+#if(NFC_NXP_ESE_VER == JCOP_VER_4_0)
+    nxpesehal_ctrl.initiator_state = PCD_INITIATOR;
+#endif
     /* Update the send seq no */
     nxpesehal_ctrl.seq_counter = (nxpesehal_ctrl.seq_counter ^ 1);
     pcb_byte |= (nxpesehal_ctrl.seq_counter << 6);
@@ -342,8 +425,25 @@ STATIC ESESTATUS phNxpEseP61_DecodeStatus(PH_SCAL_T1_FRAME_T frame_type, uint8_t
             NXPLOG_SPIHAL_D("Last Frame ");
             status = ESESTATUS_LAST_FRAME;
         }
+#if(NFC_NXP_ESE_VER == JCOP_VER_4_0)
+        nxpesehal_ctrl.initiator_state = PICC_INITIATOR;
+        if (nxpesehal_ctrl.recv_iseq_counter != pcb_bits->bit7)
+        {
+            NXPLOG_SPIHAL_D("nxpesehal_ctrl.recv_iseq_counter = 0x%x",nxpesehal_ctrl.recv_iseq_counter);
+            nxpesehal_ctrl.recv_iseq_counter = 0x00;
+            nxpesehal_ctrl.recv_iseq_counter |= pcb_bits->bit7;
+            NXPLOG_SPIHAL_D("nxpesehal_ctrl.recv_iseq_counter = 0x%x",nxpesehal_ctrl.recv_iseq_counter);
+            nxpesehal_ctrl.first_transceive_success = TRUE;
+        }
+        else
+        {
+            NXPLOG_SPIHAL_E("Jcop Responded Wrong Seq counter\n");
+            status = ESESTATUS_FRAME_SEND_R_FRAME;
+            NXPLOG_SPIHAL_E("Request Jcop to resend the frame with correct seq no");
+        }
+#endif
 #ifdef SPI_RECOVERY_SUPPORTED
-        if (ESE_STATUS_RECOVERY == nxpesehal_ctrl.halStatus)
+        if (ESE_STATUS_RECOVERY == nxpesehal_ctrl.halStatus && (status == ESESTATUS_MORE_FRAME || status == ESESTATUS_LAST_FRAME))
         {
             phNxpEseP61_ResetRecovery();
         }
@@ -374,6 +474,11 @@ STATIC ESESTATUS phNxpEseP61_DecodeStatus(PH_SCAL_T1_FRAME_T frame_type, uint8_t
             status = ESESTATUS_CRC_ERROR;
             nxpesehal_ctrl.isRFrame = 0;
         }
+        else if ((pcb_bits->lsb == 0x01) && (pcb_bits->bit2 == 0x01))
+        {
+            status = ESESTATUS_SOF_ERROR;
+            nxpesehal_ctrl.isRFrame = 0;
+        }
         else
         {
             NXPLOG_SPIHAL_E(" Error : Undefined");
@@ -381,73 +486,82 @@ STATIC ESESTATUS phNxpEseP61_DecodeStatus(PH_SCAL_T1_FRAME_T frame_type, uint8_t
             nxpesehal_ctrl.isRFrame = 0;
         }
 
-        if ((nxpesehal_ctrl.recv_seq_counter == nxpesehal_ctrl.seq_counter) || (status == ESESTATUS_PARITY_ERROR))
+        /* Only for success case, when T=1 MW receives the right R-frame */
+        if((ESESTATUS_SUCCESS == status) && (nxpesehal_ctrl.recv_seq_counter != nxpesehal_ctrl.seq_counter))
         {
-            if(Rframe_send == 1)
+            NXPLOG_SPIHAL_D("Known Behaviour: current_operation=0x%x last_state=0x%x", nxpesehal_ctrl.current_operation, nxpesehal_ctrl.last_state);
+            if (PH_SCAL_I_CHAINED_FRAME == nxpesehal_ctrl.current_operation
+                    && PH_SCAL_R_FRAME != nxpesehal_ctrl.last_state)
             {
-                status=ESESTATUS_CRC_ERROR;
-                Rframe_send = 0;
-                NXPLOG_SPIHAL_E(" Resend the last R-frame as rec_seq counter is equal to send_seq_counter");
-            }
-            else
-            {
-                /*If parity error detected for previous sent R-Frame*/
-                if((status == ESESTATUS_PARITY_ERROR) && (nxpesehal_ctrl.isRFrame == 1))
-                {
-                    break;
-                }
-                else
-                {
-                    status = ESESTATUS_FRAME_RESEND;
-                    NXPLOG_SPIHAL_E(" Resend the last frame as rec_seq counter is equal to send_seq_counter");
-                }
-            }
-        }
-        else if (PH_SCAL_I_CHAINED_FRAME == nxpesehal_ctrl.current_operation
-                && PH_SCAL_R_FRAME != nxpesehal_ctrl.last_state
-                && nxpesehal_ctrl.recv_seq_counter != nxpesehal_ctrl.seq_counter)
-        {
-            /* if chained send is going on move to next frame */
+                /* if chained send is going on move to next frame */
                 NXPLOG_SPIHAL_D("Send Next Chained frame");
                 status = ESESTATUS_SEND_NEXT_FRAME;
-        }
-        else if (PH_SCAL_R_FRAME == nxpesehal_ctrl.last_state
-                && nxpesehal_ctrl.recv_seq_counter != nxpesehal_ctrl.seq_counter)
-        {
-            NXPLOG_SPIHAL_D("R frame Response received ");
-            if (PH_SCAL_I_CHAINED_FRAME == nxpesehal_ctrl.current_operation)
-            {
-                nxpesehal_ctrl.last_state = PH_SCAL_I_FRAME;
-                NXPLOG_SPIHAL_D(" Send Next Chained frame");
-                status = ESESTATUS_SEND_NEXT_FRAME;
             }
-            else
+            else if (PH_SCAL_R_FRAME == nxpesehal_ctrl.last_state)
             {
-#ifdef SPI_RECOVERY_SUPPORTED
-                if (nxpesehal_ctrl.halStatus == ESE_STATUS_RECOVERY)
+                NXPLOG_SPIHAL_D("R frame Response received ");
+                if (PH_SCAL_I_CHAINED_FRAME == nxpesehal_ctrl.current_operation)
                 {
-                    NXPLOG_SPIHAL_D(" R Frame Received Resent the Last I Frame");
-                    status = ESESTATUS_FRAME_RESEND;
-
+                    nxpesehal_ctrl.last_state = PH_SCAL_I_FRAME;
+                    NXPLOG_SPIHAL_D(" Send Next Chained frame");
+                    status = ESESTATUS_SEND_NEXT_FRAME;
                 }
                 else
                 {
                     NXPLOG_SPIHAL_D(" Resend R frame");
                     status = ESESTATUS_FRAME_RESEND_R_FRAME;
                 }
-#else
-                NXPLOG_SPIHAL_D(" Resend R frame");
-                status = ESESTATUS_FRAME_RESEND_R_FRAME;
-#endif
             }
-
-        }
+            else
+            {
+                NXPLOG_SPIHAL_D("Uknown behaviour: last frame is not R-frame either");
+            }
+        }/* Failure case 1 */
+        else  if ((nxpesehal_ctrl.recv_seq_counter == nxpesehal_ctrl.seq_counter) || (status == ESESTATUS_PARITY_ERROR) ||
+        (status == ESESTATUS_SOF_ERROR))
+        {
+#if(NFC_NXP_ESE_VER == JCOP_VER_4_0)
+            usleep(3000);
+            if(PICC_INITIATOR == nxpesehal_ctrl.initiator_state)
+            {
+#endif
+                if(Rframe_send == 1)
+                {
+                    status=ESESTATUS_CRC_ERROR;
+                    Rframe_send = 0;
+                    NXPLOG_SPIHAL_E(" Resend the last R-frame as rec_seq counter is equal to send_seq_counter");
+                }
+                else
+                {
+                    /*If parity error detected for previous sent R-Frame*/
+                    if((status == ESESTATUS_PARITY_ERROR) && (nxpesehal_ctrl.isRFrame == 1))
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        status = ESESTATUS_FRAME_RESEND;
+                        NXPLOG_SPIHAL_E(" Resend the last frame as rec_seq counter is equal to send_seq_counter");
+                    }
+                }
+#if(NFC_NXP_ESE_VER == JCOP_VER_4_0)
+            }
+            else
+            {
+                status = ESESTATUS_FRAME_RESEND;
+                NXPLOG_SPIHAL_E("PCD_INITIATOR: Resend the last frame as rec_seq counter is equal to send_seq_counter");
+            }
+#endif
+        }/* Failure case 2 */
         else
         {
             NXPLOG_SPIHAL_E("Undefined behaviour");
+#if(NFC_NXP_ESE_VER == JCOP_VER_4_0)
+            usleep(3000);
+#endif
             if(pcb_bits->bit2 == 0x01 && Rframe_send != 1)
             {
-                status=ESESTATUS_FRAME_RESEND;
+                status=ESESTATUS_FRAME_SEND_R_FRAME;
                 NXPLOG_SPIHAL_E("Send the last frame as undefined behaviour with other indicated error");
             }
             else if(Rframe_send == 1)
@@ -463,7 +577,7 @@ STATIC ESESTATUS phNxpEseP61_DecodeStatus(PH_SCAL_T1_FRAME_T frame_type, uint8_t
         }
 #ifdef SPI_RECOVERY_SUPPORTED
         if ((nxpesehal_ctrl.halStatus == ESE_STATUS_RECOVERY) &&
-                ((status == ESESTATUS_FRAME_RESEND) || ESESTATUS_SEND_NEXT_FRAME == status))
+                ((status == ESESTATUS_FRAME_RESEND) || (ESESTATUS_SEND_NEXT_FRAME == status)))
         {
             NXPLOG_SPIHAL_D(" Recovery is done");
             phNxpEseP61_ResetRecovery();
@@ -520,7 +634,27 @@ STATIC ESESTATUS phNxpEseP61_DecodeStatus(PH_SCAL_T1_FRAME_T frame_type, uint8_t
             case WTX_RES:
                 NXPLOG_SPIHAL_E("WTX_RES");
                 status = ESESTATUS_WTX_RES;
-            break;
+                break;
+
+            case INTF_RESET_REQ:
+                NXPLOG_SPIHAL_E("RESET_REQ");
+                status = ESESTATUS_RESET_REQ;
+                break;
+
+            case INTF_RESET_RES:
+                NXPLOG_SPIHAL_E("RESET_RES");
+                status = ESESTATUS_RESET_RES;
+                break;
+
+            case PROP_END_APDU_REQ:
+                NXPLOG_SPIHAL_E("PROP_END_APDU_REQ");
+                status = ESESTATUS_END_APDU_REQ;
+                break;
+
+            case PROP_END_APDU_RES:
+                NXPLOG_SPIHAL_E("PROP_END_APDU_RES");
+                status = ESESTATUS_END_APDU_RES;
+                break;
 
             default:
                 NXPLOG_SPIHAL_E("ERROR Undefined");
@@ -640,6 +774,7 @@ STATIC void phNxpEseP61_SendtoUpper(ESESTATUS status, void *data)
     NXPLOG_SPIHAL_E("%s status 0x%x", __FUNCTION__, status);
     nxpesehal_ctrl.halStatus = ESE_STATUS_IDLE;
     nxpesehal_ctrl.recovery_counter = 0;
+    nxpesehal_ctrl.sframe_retry_cnt = 0;
     (nxpesehal_ctrl.p_ese_stack_data_cback)(status, data);
 
 }
@@ -673,7 +808,7 @@ void phNxpEseP61_ProcessResponse(uint32_t data_len, uint8_t *p_data)
     if (ESESTATUS_FRAME_RESEND == status || ESESTATUS_RESET_SEQ_COUNTER_FRAME_RESEND == status)
     {
         retry_cnt ++;
-        if(retry_cnt > 2)
+        if(retry_cnt > (PH_FRAME_RETRY_COUNT - 1))
         {
             NXPLOG_SPIHAL_E("%s Bad SMX State \n", __FUNCTION__);
             retry_cnt = 0;
@@ -724,9 +859,10 @@ ESESTATUS phNxpEseP61_Action(ESESTATUS action_evt, uint32_t data_len, uint8_t *p
     phNxpEseP61_data pRes;
     bool_t wtx_flag = FALSE;
     uint8_t recv_ack[4] = {0x00, 0x80, 0x00, 0x00};
-
+    uint8_t sframe_cmd[4] = {0x00, 0xC0, 0x00, 0xC0};
     NXPLOG_SPIHAL_D("%s - Enter action 0x%X - data_len %d !!!", __FUNCTION__, action_evt, data_len);
-    if (nxpesehal_ctrl.recovery_counter > 3)
+#if(NFC_NXP_ESE_VER != JCOP_VER_4_0)
+    if (nxpesehal_ctrl.recovery_counter >= PH_FRAME_RETRY_COUNT)
     {
         NXPLOG_SPIHAL_D("%s Recovery counter reached max (abort)", __FUNCTION__);
         if (PH_SCAL_I_CHAINED_FRAME == nxpesehal_ctrl.current_operation)
@@ -736,12 +872,11 @@ ESESTATUS phNxpEseP61_Action(ESESTATUS action_evt, uint32_t data_len, uint8_t *p
         }
         status = ESESTATUS_ABORTED;
     }
-#if(NFC_NXP_ESE_VER == JCOP_VER_3_2)
+#endif
         if(nxpesehal_ctrl.wtx_counter_value != 0)
         {
            wtx_flag = TRUE;
         }
-#endif
     if(wtx_flag)
     {
         if(action_evt != ESESTATUS_WTX_REQ)
@@ -758,33 +893,104 @@ ESESTATUS phNxpEseP61_Action(ESESTATUS action_evt, uint32_t data_len, uint8_t *p
     {
     case ESESTATUS_RESPONSE_TIMEOUT:
     case ESESTATUS_FRAME_RESEND_R_FRAME:
+    case ESESTATUS_FRAME_SEND_R_FRAME:
+    case ESESTATUS_CRC_ERROR:
 #ifdef SPI_RECOVERY_SUPPORTED
         status = ESESTATUS_REVOCERY_STARTED;
+        nxpesehal_ctrl.halStatus = ESE_STATUS_RECOVERY;
         recv_ack[1] = 0x82;
-        if(ESESTATUS_RESPONSE_TIMEOUT == action_evt)
+        if((ESESTATUS_RESPONSE_TIMEOUT == action_evt) || (ESESTATUS_FRAME_SEND_R_FRAME == action_evt))
         {
             recv_ack[1] |= (((nxpesehal_ctrl.seq_counter) << 4));
         }
+        else if(ESESTATUS_CRC_ERROR == action_evt)
+        {
+#if(NFC_NXP_ESE_VER == JCOP_VER_4_0)
+            recv_ack[1] |= (((!(nxpesehal_ctrl.recv_iseq_counter)) << 4));
+#else
+            recv_ack[1] |= (((CRC_SEQ) << 4));
+#endif
+        }
         else
         {
+#if(NFC_NXP_ESE_VER == JCOP_VER_4_0)
+            recv_ack[1] |= (((nxpesehal_ctrl.recv_iseq_counter) << 4));
+#else
             recv_ack[1] |= (((nxpesehal_ctrl.recv_seq_counter) << 4));
+#endif
         }
-        if (nxpesehal_ctrl.recovery_counter < 3)
+        if (nxpesehal_ctrl.recovery_counter < PH_FRAME_RETRY_COUNT
+#if(NFC_NXP_ESE_VER == JCOP_VER_4_0)
+            && (nxpesehal_ctrl.last_state != PH_SCAL_S_FRAME)
+#endif
+        )
         {
             nxpesehal_ctrl.recovery_counter++;
             recv_ack[3] = phNxpEseP61_ComputeLRC(recv_ack, 0x00, (sizeof(recv_ack) -1));
             nxpesehal_ctrl.last_state = PH_SCAL_R_FRAME;
+#if(NFC_NXP_ESE_VER == JCOP_VER_4_0)
+#else
             nxpesehal_ctrl.seq_counter =(0x01 & (recv_ack[1] >> 4) );
+#endif
             NXPLOG_SPIHAL_D("Send sequence num for RESPONSE_TIMEOUT or FRAME_RESEND_R_FRAME is [0x%x] \n",nxpesehal_ctrl.seq_counter);
             phNxpEseP61_SendRawFrame(sizeof(recv_ack), recv_ack);
         }
         else
+#if(NFC_NXP_ESE_VER == JCOP_VER_4_0)
+        {
+            if(nxpesehal_ctrl.first_transceive_success ==  FALSE)
+            {
+                NXPLOG_SPIHAL_D("%s Protocol not established , recovery not possible ", __FUNCTION__);
+                if (PH_SCAL_I_CHAINED_FRAME == nxpesehal_ctrl.current_operation)
+                {
+                    NXPLOG_SPIHAL_D("%s Chained Frame Ack timeout", __FUNCTION__);
+                    phNxpEseP61_UnlockAck(ESESTATUS_RESPONSE_TIMEOUT);
+                }
+                status = ESESTATUS_ABORTED;
+            }
+            else if(nxpesehal_ctrl.sframe_retry_cnt < (PH_FRAME_RETRY_COUNT - 1))
+            {
+                nxpesehal_ctrl.sframe_retry_cnt++;
+                if(nxpesehal_ctrl.last_state != PH_SCAL_S_FRAME)
+                {
+                    nxpesehal_ctrl.last_sent_sframe_type = RESYNCH_REQ;
+                }
+                sframe_cmd[1] |=  nxpesehal_ctrl.last_sent_sframe_type;
+                sframe_cmd[3] = phNxpEseP61_ComputeLRC(sframe_cmd, 0x00, (sizeof(sframe_cmd) -1));
+                phNxpEseP61_SendRawFrame(sizeof(sframe_cmd), sframe_cmd);
+            }
+            else if (nxpesehal_ctrl.last_sent_sframe_type == RESYNCH_REQ)
+            {
+                NXPLOG_SPIHAL_E("Recovery is not possible \n");
+                pnNxpEseP61_resetSeqCounter();
+                nxpesehal_ctrl.last_sent_sframe_type =  INTF_RESET_REQ;
+                sframe_cmd[1] |=  INTF_RESET_REQ;
+                sframe_cmd[3] = phNxpEseP61_ComputeLRC(sframe_cmd, 0x00, (sizeof(sframe_cmd) -1));
+                phNxpEseP61_SendRawFrame(sizeof(sframe_cmd), sframe_cmd);
+            }
+            else
+            {
+                if (PH_SCAL_I_CHAINED_FRAME == nxpesehal_ctrl.current_operation)
+                {
+                    NXPLOG_SPIHAL_D("%s Chained Frame Ack timeout", __FUNCTION__);
+                    phNxpEseP61_UnlockAck(ESESTATUS_RESPONSE_TIMEOUT);
+                }
+                status = ESESTATUS_ABORTED;
+            }
+        }
+#else
         {
             NXPLOG_SPIHAL_E("Recovery is not possible \n");
             status = ESESTATUS_ABORTED;
         }
+#endif
 #else
         NXPLOG_SPIHAL_E("Recovery is not possible \n");
+        if (PH_SCAL_I_CHAINED_FRAME == nxpesehal_ctrl.current_operation)
+        {
+            NXPLOG_SPIHAL_D("%s Chained Frame Ack timeout", __FUNCTION__);
+            phNxpEseP61_UnlockAck(ESESTATUS_RESPONSE_TIMEOUT);
+        }
         status = ESESTATUS_ABORTED;
 #endif
         break;
@@ -800,7 +1006,6 @@ ESESTATUS phNxpEseP61_Action(ESESTATUS action_evt, uint32_t data_len, uint8_t *p
 
     case ESESTATUS_FRAME_RESEND_RNAK:
     case ESESTATUS_INVALID_PARAMETER: /* if received wrong pcb type*/
-    case ESESTATUS_CRC_ERROR:
         /* CRC byte is not equal to received */
         status = ESESTATUS_CRC_ERROR;
         nxpesehal_ctrl.halStatus = ESESTATUS_FRAME_RESEND_RNAK;
@@ -814,15 +1019,13 @@ ESESTATUS phNxpEseP61_Action(ESESTATUS action_evt, uint32_t data_len, uint8_t *p
         {
             recv_RNAK[1] |= (((nxpesehal_ctrl.seq_counter) << 4));
         }
-        else
-        {
-            recv_RNAK[1] |= (((CRC_SEQ) << 4));
-            Rframe_send = 1;
-            NXPLOG_SPIHAL_D("CRC_SEQ value is [0x%x] ",CRC_SEQ);
-        }
+
         NXPLOG_SPIHAL_D("%s Send R Frame  0x%x ", __FUNCTION__, recv_RNAK[1]);
         recv_RNAK[3] = phNxpEseP61_ComputeLRC(recv_RNAK, 0x00, (sizeof(recv_RNAK) -1));
+#if(NFC_NXP_ESE_VER == JCOP_VER_4_0)
+#else
         nxpesehal_ctrl.seq_counter =(0x01 & (recv_RNAK[1] >> 4) );
+#endif
         NXPLOG_SPIHAL_D("sequence counter for send R Frame  0x%x ",nxpesehal_ctrl.seq_counter );
         phNxpEseP61_SendRawFrame(sizeof(recv_RNAK), recv_RNAK);
         break;
@@ -839,7 +1042,11 @@ ESESTATUS phNxpEseP61_Action(ESESTATUS action_evt, uint32_t data_len, uint8_t *p
         }
         else
         {
+#if(NFC_NXP_ESE_VER == JCOP_VER_4_0)
+            status = pnNxpEseP61_sendRFrame(!(nxpesehal_ctrl.recv_iseq_counter));
+#else
             status = pnNxpEseP61_sendRFrame();
+#endif
         }
 
         break;
@@ -880,7 +1087,11 @@ ESESTATUS phNxpEseP61_Action(ESESTATUS action_evt, uint32_t data_len, uint8_t *p
     case ESESTATUS_PARITY_ERROR:
         if(nxpesehal_ctrl.isRFrame == 1)
         {
-            status = pnNxpEseP61_sendRFrame();
+#if(NFC_NXP_ESE_VER == JCOP_VER_4_0)
+           status = pnNxpEseP61_sendRFrame((nxpesehal_ctrl.recv_iseq_counter));
+#else
+           status = pnNxpEseP61_sendRFrame();
+#endif
         }
         else
         {
@@ -901,7 +1112,7 @@ ESESTATUS phNxpEseP61_Action(ESESTATUS action_evt, uint32_t data_len, uint8_t *p
         break;
 
     case ESESTATUS_RESYNCH_RES:
-        status = ESESTATUS_FAILED;
+        status = ESESTATUS_RESYNCH_RES;
         break;
 
     case ESESTATUS_IFS_REQ:
@@ -922,6 +1133,18 @@ ESESTATUS phNxpEseP61_Action(ESESTATUS action_evt, uint32_t data_len, uint8_t *p
 
     case ESESTATUS_WTX_RES:
         status = ESESTATUS_WTX_RES;
+        break;
+    case ESESTATUS_END_APDU_REQ:
+    case ESESTATUS_END_APDU_RES:
+        NXPLOG_SPIHAL_D("Received End Of APDU ACK\n");
+        nxpesehal_ctrl.recovery_counter = 0;
+        nxpesehal_ctrl.sframe_retry_cnt = 0;
+        break;
+    case ESESTATUS_RESET_REQ:
+    case ESESTATUS_RESET_RES:
+        /* TODO to be updated */
+        NXPLOG_SPIHAL_D("Received RESET Req/Rsp\n");
+        status = ESESTATUS_ABORTED;
         break;
 
     default:
@@ -974,6 +1197,8 @@ ESESTATUS phNxpEseP61_Action(ESESTATUS action_evt, uint32_t data_len, uint8_t *p
     {
         uint8_t wtx_frame[] = {0x00, 0xE3, 0x01, 0x01, 0xE3};
         NXPLOG_SPIHAL_D("%s WTX Request", __FUNCTION__);
+        nxpesehal_ctrl.last_state = PH_SCAL_S_FRAME;
+        nxpesehal_ctrl.last_sent_sframe_type = WTX_RES;
         /* Trigger SPI service to re-set timer */
         if(wtx_flag)
         {
@@ -985,12 +1210,30 @@ ESESTATUS phNxpEseP61_Action(ESESTATUS action_evt, uint32_t data_len, uint8_t *p
                 return status;
             }
         }
+#if(NXP_ESE_WTX_RES_DELAY == TRUE)
+        usleep(3500);
+#endif
         status = phNxpEseP61_SendRawFrame(sizeof(wtx_frame), wtx_frame);
         if (ESESTATUS_SUCCESS == status)
         {
             status = ESESTATUS_WTX_REQ;
         }
         phNxpEseP61_SendtoUpper(status, NULL);
+    }
+    else if(ESESTATUS_RESYNCH_RES == status)
+    {
+        pnNxpEseP61_resetSeqCounter();
+        if ((nxpesehal_ctrl.halStatus == ESE_STATUS_RECOVERY))
+        {
+            if (PH_SCAL_I_CHAINED_FRAME == nxpesehal_ctrl.current_operation)
+            {
+                NXPLOG_SPIHAL_D("%s Chained Frame Ack timeout", __FUNCTION__);
+                phNxpEseP61_UnlockAck(ESESTATUS_RESPONSE_TIMEOUT);
+            }
+            status = ESESTATUS_FAILED;
+            pnNxpEseP61_resetCmdRspState(status);
+            phNxpEseP61_SendtoUpper(status, NULL);
+        }
     }
 #if 0
     else if (ESESTATUS_WTX_REQ == status)
@@ -1155,6 +1398,7 @@ STATIC void phNxpEseP61_ResetRecovery(void)
     NXPLOG_SPIHAL_D("%s enter ", __FUNCTION__);
     nxpesehal_ctrl.halStatus = ESE_STATUS_BUSY;
     nxpesehal_ctrl.recovery_counter = 0;
+    nxpesehal_ctrl.sframe_retry_cnt = 0;
     NXPLOG_SPIHAL_D("%s exit ", __FUNCTION__);
 }
 
@@ -1186,14 +1430,23 @@ ESESTATUS phNxpEseP61_setIfsc(uint16_t IFSC_Size)
  * \retval ESESTATUS_SUCCESS on sucess or Error code for failure.
  *
 */
+#if(NFC_NXP_ESE_VER == JCOP_VER_4_0)
+STATIC ESESTATUS pnNxpEseP61_sendRFrame(uint8_t seq_no)
+#else
 STATIC ESESTATUS pnNxpEseP61_sendRFrame(void)
+#endif
 {
     ESESTATUS status = ESESTATUS_FAILED;
     uint8_t recv_ack[4]= {0x00,0x80,0x00,0x00};
-
+#if(NFC_NXP_ESE_VER == JCOP_VER_4_0)
+    recv_ack[1] |= ((seq_no) << 4);
+    NXPLOG_SPIHAL_D("%s Send ACK for chained frame 0x%x seq num [0x%x]", __FUNCTION__, recv_ack[1], seq_no);
+#else
     recv_ack[1] |= ((!recv_chained_frame) << 4);
     nxpesehal_ctrl.seq_counter =(0x01 & (recv_ack[1] >> 4) );
     NXPLOG_SPIHAL_D("%s Send ACK for chained frame 0x%x seq num [0x%x]", __FUNCTION__, recv_ack[1],nxpesehal_ctrl.seq_counter);
+#endif
+    
 
     recv_ack[3] = phNxpEseP61_ComputeLRC(recv_ack, 0x00, (sizeof(recv_ack) -1));
     status = phNxpEseP61_SendRawFrame(sizeof(recv_ack), recv_ack);
@@ -1304,4 +1557,21 @@ void pnNxpEseP61_resetCmdRspState(ESESTATUS status)
     }
     nxpesehal_ctrl.cmd_rsp_state = STATE_IDLE;
     NXPLOG_SPIHAL_D("%s state = STATE_IDLE", __FUNCTION__);
+}
+
+/**
+ * \ingroup spi_t1_protocol_implementation
+ * \brief This function resets the seq counter of the T1 Frame send and receive seq counter
+ *  and waits on reset action semaphore.
+ *
+ * \param[in]       status
+ *
+ * \retval ESESTATUS_SUCCESS on sucess or Error code for failure.
+ *
+*/
+STATIC ESESTATUS pnNxpEseP61_resetSeqCounter()
+{
+    nxpesehal_ctrl.seq_counter = 0x01;
+    nxpesehal_ctrl.recv_iseq_counter = 0x01;
+    return ESESTATUS_SUCCESS;
 }

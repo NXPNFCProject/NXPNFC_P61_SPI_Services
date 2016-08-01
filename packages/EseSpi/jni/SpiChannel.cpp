@@ -146,3 +146,24 @@ void doeSE_Reset(void)
     ALOGD("%s: exit:", fn);
 
 }
+/*******************************************************************************
+**
+** Function:        doeSE_JcopDownLoadReset
+**
+** Description:     Reset the DWP connection with eSE
+**
+** Returns:         True if ok.
+**
+*******************************************************************************/
+void doeSE_JcopDownLoadReset(void)
+{
+    static const char fn [] = "SpiChannel::doeSE_JcopDownLoadReset";
+    ESESTATUS status = ESESTATUS_SUCCESS;
+    ALOGD("%s: enter:", fn);
+    if(status != phNxpEse_resetJcopUpdate())
+    {
+        ALOGD ("doeSE_JcopDownLoadReset: Failed");
+    }
+    ALOGD("%s: exit:", fn);
+
+}

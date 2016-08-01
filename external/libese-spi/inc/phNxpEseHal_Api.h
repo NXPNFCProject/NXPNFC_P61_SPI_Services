@@ -115,6 +115,28 @@ ESESTATUS phNxpEseP61_close(void);
 */
 
 ESESTATUS phNxpEseP61_reset(void);
+/**
+ * \ingroup spi_libese
+ * \brief This function reset the ESE
+ *
+ * \param[in]       void
+ *
+ * \retval ESESTATUS_SUCCESS Always return ESESTATUS_SUCCESS (0).
+ *
+*/
+
+ESESTATUS phNxpEse_resetJcopUpdate(void);
+/**
+ * \ingroup spi_libese
+ * \brief This function reset the P73 through ISO RST pin
+ *
+ * \param[in]       void
+ *
+ * \retval ESESTATUS_SUCCESS Always return ESESTATUS_SUCCESS (0).
+ *
+*/
+
+ESESTATUS phNxpEseP73_ISOreset(void);
 
 /**
  * \ingroup spi_libese
@@ -127,6 +149,30 @@ ESESTATUS phNxpEseP61_reset(void);
 */
 
 ESESTATUS phNxpEseP61_setIfsc(uint16_t IFSC_Size);
+
+/**
+ * \ingroup spi_libese
+ * \brief This function reset the SPI interface of P73
+ *
+ * \param[in]       void
+ *
+ * \retval ESESTATUS_SUCCESS Always return ESESTATUS_SUCCESS (0).
+ *
+*/
+
+ESESTATUS phNxpEseP61_SPIIntfReset(void);
+
+/**
+ * \ingroup spi_libese
+ * \brief This function sends the S-frame to indicate END_OF_APDU
+ *
+ * \param[in]       void
+ *
+ * \retval ESESTATUS_SUCCESS Always return ESESTATUS_SUCCESS (0).
+ *
+*/
+
+ESESTATUS phNxpEseP61_EndOfApdu(void);
 
 /** @} */
 #endif /* _PHNXPSPIHAL_API_H_ */

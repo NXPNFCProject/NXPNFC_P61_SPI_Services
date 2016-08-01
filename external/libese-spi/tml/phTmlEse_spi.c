@@ -31,9 +31,12 @@
 #include <phEseStatus.h>
 #include <string.h>
 #include <phNxpSpiHal_utils.h>
+#include <phNxpConfig.h>
+#include <linux/p61.h>
 
 #define NORMAL_MODE_HEADER_LEN      3
 #define NORMAL_MODE_LEN_OFFSET      2
+#define SEND_PACKET_SOF             0x5A
 
 /*******************************************************************************
 **
@@ -138,15 +141,27 @@ int phTmlEse_spi_write(void *pDevHandle, uint8_t * pBuffer, int nNbBytesToWrite)
 {
     int ret;
     int numWrote = 0;
+    unsigned long int configNum1;
 
     if (NULL == pDevHandle)
     {
         return -1;
     }
-
+    if (GetNxpNumValue (NAME_NXP_SOF_WRITE, &configNum1, sizeof(configNum1)))
+    {
+        if(configNum1 == 1)
+        {
+            /* Appending SOF for SPI write */
+            pBuffer[0] = SEND_PACKET_SOF;
+        }
+        else
+        {
+            /* Do Nothing */
+        }
+    }
     while (numWrote < nNbBytesToWrite)
     {
-        usleep(5000);
+        //usleep(5000);
         ret = write((intptr_t)pDevHandle, pBuffer + numWrote, nNbBytesToWrite - numWrote);
         if (ret > 0)
         {
@@ -205,6 +220,13 @@ int phTmlEse_spi_ioctl(phTmlEse_ControlCode_t eControlCode, void *pDevHandle, lo
 
     case phTmlEse_e_EnablePollMode:
         ret = ioctl((intptr_t)pDevHandle, P61_SET_POLL, level);
+        break;
+
+    case phTmlEse_e_P73IsoRst:
+        ret = ioctl((intptr_t)pDevHandle, P61_SET_SPM_PWR, level);
+        break;
+    case phTmlEse_e_EnableThroughputMeasurement:
+        ret = ioctl((intptr_t)pDevHandle, P61_SET_THROUGHPUT, level);
         break;
     default:
         break;

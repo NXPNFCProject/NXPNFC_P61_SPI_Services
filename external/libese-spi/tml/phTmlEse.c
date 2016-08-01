@@ -910,6 +910,19 @@ ESESTATUS phTmlEse_IoCtl(phTmlEse_ControlCode_t eControlCode, long level)
                     usleep(100 * 1000);
                     break;
                 }
+
+            case phTmlEse_e_P73IsoRst:
+                {
+                    (void)phTmlEse_spi_ioctl(phTmlEse_e_P73IsoRst, gpphTmlEse_Context->pDevHandle, level);
+                    usleep(100 * 1000);
+                    break;
+                }
+            case phTmlEse_e_EnableThroughputMeasurement:
+                {
+                    (void)phTmlEse_spi_ioctl(phTmlEse_e_EnableThroughputMeasurement, gpphTmlEse_Context->pDevHandle, level);
+                    usleep(100 * 1000);
+                    break;
+                }
             default:
                 {
                     wStatus = ESESTATUS_INVALID_PARAMETER;

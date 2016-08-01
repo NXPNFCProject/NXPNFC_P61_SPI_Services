@@ -38,7 +38,18 @@ typedef enum
    STATE_RESET_BLOCKED =0x02,
 }transceive_state;
 
+typedef enum
+{
+  PN67T_POWER_SCHEME = 0x01,
+  PN80T_LEGACY_SCHEME,
+  PN80T_EXT_PMU_SCHEME,
+}phNxpEse_PowerScheme;
 
+enum
+{
+    PCD_INITIATOR = 0x01,
+    PICC_INITIATOR
+};
 /* Macros to enable and disable extensions */
 #define HAL_ENABLE_EXT()    (nxpesehal_ctrl.hal_ext_enabled = 1)
 #define HAL_DISABLE_EXT()   (nxpesehal_ctrl.hal_ext_enabled = 0)
@@ -63,6 +74,8 @@ typedef struct phNxpEseP61_Control
     /* HAL extensions */
     //uint8_t hal_ext_enabled;
 
+    /* State maintained to identify  who's initiating the chaining */
+    uint8_t initiator_state;
     /* Waiting semaphore */
     phNxpSpiHal_Sem_t ack_cb_data;
 
@@ -82,6 +95,9 @@ typedef struct phNxpEseP61_Control
 
     /* receive seq counter */
     uint8_t recv_seq_counter;
+
+    /* receive I frame seq counter */
+    uint8_t recv_iseq_counter;
 
     uint8_t recovery_counter;
 
@@ -108,6 +124,15 @@ typedef struct phNxpEseP61_Control
 
     /*Reset API response ack*/
     phNxpSpiHal_Sem_t reset_ack;
+
+    bool_t first_transceive_success;
+    uint8_t pwr_scheme;
+
+    /*last sent S Frame*/
+    uint8_t last_sent_sframe_type;
+
+   /*retry count for s frame frame*/
+    uint8_t sframe_retry_cnt;
 } phNxpEseP61_Control_t;
 
 

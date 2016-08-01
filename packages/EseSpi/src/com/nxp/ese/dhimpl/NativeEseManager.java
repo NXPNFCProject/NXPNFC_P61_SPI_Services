@@ -71,6 +71,8 @@ public class NativeEseManager{
 
     public native int doStartJcopDownload();
 
+    public native boolean doIntfReset();
+
     public native byte[] doTransceive(byte[] data);
 
     public boolean deinitialize() {

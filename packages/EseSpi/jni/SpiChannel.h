@@ -44,6 +44,6 @@ bool transceive (UINT8* xmitBuffer, INT32 xmitBufferSize, UINT8* recvBuffer,
                  INT32 recvBufferMaxSize, INT32& recvBufferActualSize, INT32 timeoutMillisec);
 
 void doeSE_Reset();
-
+void doeSE_JcopDownLoadReset();
 extern INT16 mHandle;
 #endif /* SPICHANNEL_H_ */

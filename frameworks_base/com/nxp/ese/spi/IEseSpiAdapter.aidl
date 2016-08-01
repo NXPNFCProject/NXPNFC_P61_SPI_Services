@@ -26,6 +26,7 @@ interface IEseSpiAdapter {
     boolean enable(int timeout);
     boolean disable(boolean saveState);
     boolean reset();
+    boolean interfaceReset();
     byte[] transceive(in String pkg, in byte[] data_in);
     int getSeInterface(int type);
     IeSEClientServicesAdapter getSpieSEClientServicesAdapterInterface();

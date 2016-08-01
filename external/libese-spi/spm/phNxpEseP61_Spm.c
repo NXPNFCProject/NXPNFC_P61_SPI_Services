@@ -20,6 +20,7 @@
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <linux/p61.h>
 #include "phNxpEseP61_Spm.h"
 #include "phTmlEse_spi.h"
 #include <phNxpEseHal.h>
@@ -351,6 +352,30 @@ SPMSTATUS phNxpEseP61_SPM_DisablePwr(void)
     SPMSTATUS status = SPMSTATUS_SUCCESS;
 
     ret = ioctl(fd_p61_device, P61_SET_SPM_PWR, 0);
+    if(ret < 0)
+    {
+        ALOGE("%s : failed errno = 0x%x", __FUNCTION__, errno);
+        status = SPMSTATUS_FAILED;
+    }
+
+    return status;
+}
+/******************************************************************************
+ * Function         phNxpEseP61_SPM_SetPwrScheme
+ *
+ * Description      This function request to the nfc i2c driver
+ *                  to set the chip type and power scheme.
+ *
+ * Returns          On Success SPMSTATUS_SUCCESS else proper error code
+ *
+ ******************************************************************************/
+SPMSTATUS phNxpEseP61_SPM_SetPwrScheme(long arg)
+{
+    int32_t ret = -1;
+    SPMSTATUS status = SPMSTATUS_SUCCESS;
+
+    ALOGD("%s : Power scheme is set to  = 0x%ld", __FUNCTION__, arg);
+    ret = ioctl(fd_p61_device, P61_SET_POWER_SCHEME, arg);
     if(ret < 0)
     {
         ALOGE("%s : failed errno = 0x%x", __FUNCTION__, errno);

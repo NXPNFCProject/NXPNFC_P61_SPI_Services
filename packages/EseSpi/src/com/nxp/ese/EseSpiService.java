@@ -140,6 +140,7 @@ public class EseSpiService implements DeviceHost{
     public static final int LS_RETRY_CNT = 3;
     NfceeAccessControl mNfceeAccessControl;
     static final int EE_ERROR_IO = -1;
+    private int mPid;
     //private EseServiceHandler mHandler = new EseServiceHandler();
 
     @Override
@@ -311,7 +312,13 @@ public class EseSpiService implements DeviceHost{
 
         boolean enableInternal(int timeout) {
             if (mState == EseSpiAdapter.STATE_ON) {
-                return true;
+                Log.i(TAG, "Inside 2nd try returning, Calling application PID :"+Binder.getCallingPid()+" Saved PID :"+mPid);
+                if(mPid != Binder.getCallingPid()){
+                    return false;
+                }else
+                {
+                    return true;
+                }
             }
 
             try {
@@ -320,12 +327,18 @@ public class EseSpiService implements DeviceHost{
                 try {
                     if (!mSpiManager.doInitialize(timeout)) {
                         Log.w(TAG, "Error enabling SPI");
-                        updateState(EseSpiAdapter.STATE_OFF);
+                        /* One App at a time, second app comes here after doInitialize fail
+                         * but shouldn't update the state to STATE_OFF, otherwise
+                         * disableInternal won't happen once the first app finishes */
+                        if (mState != EseSpiAdapter.STATE_ON)
+                            updateState(EseSpiAdapter.STATE_OFF);
                         return false;
                     }else
                     {
                         Log.i(TAG, "Initialization success ");
                         updateState(EseSpiAdapter.STATE_ON);
+                        mPid = Binder.getCallingPid();
+                        Log.i(TAG, "Calling application PID :"+mPid);
                         Intent intent = new Intent(ACTION_ESE_ENABLE_DONE);
                         mContext.sendBroadcast(intent);
 /*                        long startTime = System.nanoTime();
@@ -352,6 +365,10 @@ public class EseSpiService implements DeviceHost{
         }
 
         boolean disableInternal() {
+            Log.i(TAG, "Inside disableInternal() Calling application PID :"+Binder.getCallingPid()+" Saved PID :"+mPid);
+            if(mPid != Binder.getCallingPid()){
+                return false;
+            }
             if (mState == EseSpiAdapter.STATE_OFF) {
                 return true;
             }
@@ -365,6 +382,8 @@ public class EseSpiService implements DeviceHost{
                 } else{
                     Log.i(TAG, "Deitialization success ");
                     updateState(EseSpiAdapter.STATE_OFF);
+                    /* Resetting Application PID */
+                    mPid = 0;
                     return true;
                 }
             } finally {
@@ -437,17 +456,19 @@ public class EseSpiService implements DeviceHost{
     final class EseSpiAdapterService extends IEseSpiAdapter.Stub {
         @Override
         public boolean enable(int timeout) throws RemoteException {
+            boolean status = false;
             EseSpiService.enforceAdminPerm(mContext);
             saveSpiOnSetting(true);
             Log.i(TAG,"before enable call mStateValue : " + mState);
             //new EnableDisableTask().execute(TASK_ENABLE);
-            enableInternal(timeout);
+            status = enableInternal(timeout);
             Log.i(TAG,"mStateValue : " + mState);
-            return true;
+            return status;
         }
 
         @Override
         public boolean disable(boolean saveState) throws RemoteException {
+            boolean status = false;
             EseSpiService.enforceAdminPerm(mContext);
 
             if (saveState) {
@@ -455,9 +476,9 @@ public class EseSpiService implements DeviceHost{
             }
             Log.i(TAG,"before disable call mStateValue : " + mState);
             //new EnableDisableTask().execute(TASK_DISABLE);
-            disableInternal();
+            status = disableInternal();
             Log.i(TAG,"mStateValue : " + mState);
-            return true;
+            return status;
         }
 
         @Override
@@ -468,11 +489,31 @@ public class EseSpiService implements DeviceHost{
                 return false;
             }
             Log.i(TAG,"before reset ");
+            if(mPid != Binder.getCallingPid())
+            {
+                throw new SecurityException("Wrong PID");
+            }
             boolean status = mSpiManager.doReset();
             Log.i(TAG," dorest status: "+ status);
-            return true;
+            return status;
         }
 
+        @Override
+        public boolean interfaceReset() throws RemoteException {
+            EseSpiService.enforceAdminPerm(mContext);
+            if (!isSpiEnabled()) {
+                Log.i(TAG," reset: SPI is not Enabled ");
+                return false;
+            }
+            Log.i(TAG,"Perfrom interface reset ");
+            if(mPid != Binder.getCallingPid())
+            {
+                throw new SecurityException("Wrong PID");
+            }
+            boolean status = mSpiManager.doIntfReset();
+            Log.i(TAG," rest interface status: "+ status);
+            return status;
+        }
         @Override
         public int getState() throws RemoteException {
             synchronized (EseSpiService.this) {
@@ -487,6 +528,11 @@ public class EseSpiService implements DeviceHost{
             int retryCount =1;
             do {
                 try {
+                    Log.i(TAG, "Inside transceive() Calling application PID :"+Binder.getCallingPid()+" Saved PID :"+mPid);
+                    if(mPid != Binder.getCallingPid())
+                    {
+                        throw new SecurityException("Wrong PID");
+                    }
                     watchDog = new WatchDogThread("transceive", TRANSCEIVE_WATCHDOG_MS);
                     watchDog.start();
                     try {

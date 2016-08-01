@@ -174,5 +174,6 @@ SPMSTATUS phNxpEseP61_SPM_GetAccess(long timeout);
  */
 
 SPMSTATUS phNxpEseP61_SPM_RelAccess(void);
+SPMSTATUS phNxpEseP61_SPM_SetPwrScheme(long arg);
 #endif  /*  _PHNXPESEP61_SPM_H    */
 /** @} */
