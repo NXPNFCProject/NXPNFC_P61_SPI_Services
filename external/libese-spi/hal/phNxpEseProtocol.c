@@ -1139,6 +1139,7 @@ ESESTATUS phNxpEseP61_Action(ESESTATUS action_evt, uint32_t data_len, uint8_t *p
         NXPLOG_SPIHAL_D("Received End Of APDU ACK\n");
         nxpesehal_ctrl.recovery_counter = 0;
         nxpesehal_ctrl.sframe_retry_cnt = 0;
+        status = ESESTATUS_SUCCESS;
         break;
     case ESESTATUS_RESET_REQ:
     case ESESTATUS_RESET_RES:
