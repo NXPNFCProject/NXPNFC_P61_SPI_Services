@@ -620,6 +620,23 @@ public class EseSpiService implements DeviceHost{
             return null;
         }
 
+
+        @Override
+        public Bundle getCallingAppPkg(String pkg, IBinder b) throws RemoteException {
+            Bundle result;
+            String packageName;
+            EseSpiService.enforceAdminPerm(mContext);
+            try{
+                packageName = EseSpiService.this.getCallingAppPkg(mContext);
+                result = writeNoException();
+                result.putString("packageName", packageName);
+            } catch(Exception e){
+                result = writeEeException(EE_ERROR_IO, e.getMessage());
+            }
+            return result;
+
+        }
+
         @Override
         public Bundle open(String pkg, IBinder b) throws RemoteException {
             Bundle result;
@@ -772,7 +789,7 @@ public class EseSpiService implements DeviceHost{
         private String respOut = null;
         private String status = "false";
         private String TAG = "SpiLoaderService";
-
+        private byte [] data_buffer = new byte[1024];
         void EseSpiLoaderService()
         {
             appName = null;
@@ -1005,7 +1022,7 @@ public class EseSpiService implements DeviceHost{
             OutputStream os = null;
             PrintWriter out = null;
             FileReader fr = null;
-            byte[] buffer = new byte[1024];
+            byte[] buffer = data_buffer;
             int length = 0;
             String srcBackup = srcIn+"mw";
             String rspBackup = null;
