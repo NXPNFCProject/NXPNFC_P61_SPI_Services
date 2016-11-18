@@ -71,7 +71,7 @@ public class NativeEseManager{
 
     public native int doStartJcopDownload();
 
-    public native boolean doIntfReset();
+    public native boolean doChipReset();
 
     public native byte[] doTransceive(byte[] data);
 
@@ -87,5 +87,4 @@ public class NativeEseManager{
     }
     public native int doGetSeInterface(int type);
     public native boolean doCheckJcopDlAtBoot();
-
 }

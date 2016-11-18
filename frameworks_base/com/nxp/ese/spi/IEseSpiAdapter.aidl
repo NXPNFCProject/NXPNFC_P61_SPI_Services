@@ -19,14 +19,14 @@ package com.nxp.ese.spi;
 import android.os.Bundle;
 import com.nxp.intf.IeSEClientServicesAdapter;
 /**
- * {@hide}
+ *{@hide}
  */
 interface IEseSpiAdapter {
     int getState();
-    boolean enable(int timeout);
+    boolean enable(int timeout,IBinder b);
     boolean disable(boolean saveState);
     boolean reset();
-    boolean interfaceReset();
+    boolean eseChipReset();
     byte[] transceive(in String pkg, in byte[] data_in);
     int getSeInterface(int type);
     IeSEClientServicesAdapter getSpieSEClientServicesAdapterInterface();

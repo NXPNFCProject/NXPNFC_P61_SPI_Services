@@ -36,20 +36,23 @@ import com.nxp.intf.INxpExtrasService;
 import com.nxp.intf.IeSEClientServicesAdapter;
 import android.os.RemoteException;
 import java.io.IOException;
-import android.os.ServiceManager;
+
 import android.os.Bundle;
 import android.os.IBinder;
+import android.os.ServiceManager;
 import android.os.Handler;
 import android.os.Message;
-import android.os.Binder;
-import android.os.UserHandle;
 import android.content.BroadcastReceiver;
+import android.os.UserHandle;
+import android.os.Binder;
 import android.app.ActivityManager;
 import android.app.Application;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.List;
 import java.io.PrintWriter;
 import java.io.InputStream;
@@ -62,38 +65,117 @@ import java.io.PrintWriter;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.FileNotFoundException;
-import android.content.ComponentName;
 
+import android.content.ComponentName;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorService;
 //import src.com.android.nfc.NfcService.WatchDogThread;
 import android.os.AsyncTask;
+
 import java.security.MessageDigest;
 
-
+class WatchDog implements Runnable {
+        static String TAG = "SPI_WDT:";
+        static boolean sIsThreadPoolInitialized = false;
+        static int MAX_NUM_WATCHDOGS=10;
+        static ExecutorService sExecutor = Executors.newFixedThreadPool(MAX_NUM_WATCHDOGS);
+        static LinkedBlockingDeque<WatchDog> sWatchDogTaskQ = new LinkedBlockingDeque<WatchDog>(MAX_NUM_WATCHDOGS);
+        final  Object mCancelWaiter = new Object();
+        int mTimeout = 0;
+        NativeEseManager mSpiMgr = null;
+        String mTaskName;
+        String mWatchDogNum;
+        boolean mWatchDogCancelled = false;
+        private WatchDog(String taskName,int timeout,String watchDogNum) {
+            mTaskName    = taskName;
+            mTimeout     = timeout;
+            mWatchDogNum = watchDogNum;
+            Log.i(TAG,"WatchDog constructed with Num:"+mWatchDogNum);
+        }
+        /*As watchdog's are used by invocation of each API, Reuse of threads used by watchdog is essential.
+         * So Pool of watchdog threads(Executors)& and corresponding set of WorkQueues (TaskQueues) are registered.
+         * When a watchdog is requested, a task from TaskQueue is retreived and assigned to a worker thread in executor's thread pool*/
+        public static WatchDog getWatchdogTimer(String taskName, int timeout, NativeEseManager spiMgr){
+            WatchDog wdg = null;
+            Log.i(TAG,"WatchDog getWatchdogTimer from Pool with name:"+taskName);
+            try{
+                if(!sIsThreadPoolInitialized){
+                    Log.i(TAG,"WatchDog Initialize Watchdog Runnables");
+                    for(int i=0;i<MAX_NUM_WATCHDOGS;i++){
+                        sWatchDogTaskQ.put(new WatchDog("Default",100,"WATCHDOG_"+i));
+                    }
+                    sIsThreadPoolInitialized = true;
+                }
+                wdg = sWatchDogTaskQ.take();
+                if(wdg != null){
+                    wdg.mTaskName   = taskName;
+                    wdg.mTimeout    = timeout;
+                    wdg.mSpiMgr     =  spiMgr;
+                    wdg.mWatchDogCancelled = false;
+                    Log.i(TAG,"WatchDog Allocated.for task:"+taskName+":timeout:"+wdg.mTimeout+":Num:"+wdg.mWatchDogNum);
+                }
+            }catch (InterruptedException e) {
+                Log.i(TAG,"getWatchdogTimer thread interrupted.");
+                e.printStackTrace();
+            }
+            return wdg;
+        }
+        public void setTimeOut(int newTimeout){
+            mTimeout = newTimeout;
+        }
+        @Override
+        public void run() {
+            synchronized (mCancelWaiter) {
+                try{
+                    Log.i(TAG,"WatchDog thread Running:"+mTaskName);
+                    mCancelWaiter.wait(mTimeout);
+                    if(!mWatchDogCancelled){
+                        Log.i(TAG, "Watchdog expired:name="+mTaskName +":timeout="+ mTimeout+":Num:"+mWatchDogNum);
+                        if(mSpiMgr != null){
+                           mSpiMgr.doAbort();
+                        }
+                    }
+                    Log.i(TAG,"Watchdog Adding task back to queue"+":Num:"+mWatchDogNum);
+                    sWatchDogTaskQ.put(this);
+                    mWatchDogCancelled = false;
+                } catch (InterruptedException e) {
+                    Log.i(TAG,"Watchdog thread interrupted.");
+                    e.printStackTrace();
+                }
+            }
+        }
+        public synchronized void cancel() {
+            synchronized (mCancelWaiter) {
+                Log.i(TAG,"Watchdog thread Cancelled."+":timeout="+ mTimeout+":Num:"+mWatchDogNum);
+                mWatchDogCancelled = true;
+                mCancelWaiter.notify();
+            }
+        }
+        public synchronized void start() {
+            Log.i(TAG,"Watchdog thread starting:"+mTaskName+":timeout="+ mTimeout+":Num:"+mWatchDogNum);
+            /*Execute the task(this/runnable) in a executor worker thread*/
+            sExecutor.execute(this);
+        }
+}
 public class EseSpiService implements DeviceHost{
 
     /**SPI ADMIN permission - only for system apps */
     private static final String ADMIN_PERM = android.Manifest.permission.WRITE_SECURE_SETTINGS;
     private static final String ADMIN_PERM_ERROR = "WRITE_SECURE_SETTINGS permission required";
-    /**
-     * Regular NFC permission
-     */
     static final String NFC_PERMISSION = android.Manifest.permission.NFC;
     private static final String NFC_PERM_ERROR = "NFC permission required";
     public static final String ACTION_ESE_SUCCESS = "com.nxp.ese.spi.action.ESE_SUCCESS";
     public static final String ACTION_ESE_FAILED =  "com.nxp.ese.spi.action.ESE_FAILED";
     public static final String ACTION_ESE_ABORTED = "com.nxp.ese.spi.action.ESE_ABORTED";
     private static final String ACTION_ESE_ENABLE_DONE = "com.nxp.ese.spi.action.ENABLE_DONE";
-
     private static final String[] path = {"/data/nfc/JcopOs_Update1.apdu",
                                           "/data/nfc/JcopOs_Update2.apdu",
                                           "data/nfc/JcopOs_Update3.apdu"};
-
     private static final String[] PREF_JCOP_MODTIME = {"jcop file1 modtime",
                                                        "jcop file2 modtime",
                                                        "jcop file3 modtime"};
     private static final long[] JCOP_MODTIME_DEFAULT = {-1,-1,-1};
     private static final long[] JCOP_MODTIME_TEMP = {-1,-1,-1};
-
     public static final int STATUS_SUCCESS = 0x00;
     public static final int STATUS_UPTO_DATE = 0x01;
     public static final int STATUS_FAILED = 0x03;
@@ -129,18 +211,20 @@ public class EseSpiService implements DeviceHost{
     private static final byte LOADER_SERVICE_VERSION_21 = 0x21;
     static final int INIT_WATCHDOG_MS = 90000;
     static final int INIT_WATCHDOG_LS_MS = 180000;
-    static final int TRANSCEIVE_WATCHDOG_MS = 120000;
+    static final int TRANSCEIVE_WATCHDOG_MS = 120000; /** 20 Seconds */
 
     static final int TASK_ENABLE = 1;
     static final int TASK_DISABLE = 2;
     static final int MSG_SUCCESS = 0;
     static final int MSG_FAILED = 1;
     static final int MSG_WTX_RES = 2;
-    static final int MSG_ABORTED = 3;
     public static final int LS_RETRY_CNT = 3;
     NfceeAccessControl mNfceeAccessControl;
     static final int EE_ERROR_IO = -1;
     private int mPid;
+    private WatchDog mWatchDog = null;
+    private OpenSPI mOpenSPI;
+
     //private EseServiceHandler mHandler = new EseServiceHandler();
 
     @Override
@@ -160,18 +244,16 @@ public class EseSpiService implements DeviceHost{
             case MSG_WTX_RES:{
                 Log.i(TAG, "  MSG_WTX_RES");
                 mTransiveStatus = MSG_WTX_RES;
-                watchDog.cancel();
-                try{
-                     watchDog.join();
-                } catch (java.lang.InterruptedException e) {
+
+                if(mWatchDog != null){
+                    mWatchDog.cancel();
+                    mWatchDog = null;
                 }
-                watchDog = new WatchDogThread("transceive", TRANSCEIVE_WATCHDOG_MS);
-                watchDog.start();
-                break;
-            }
-            case MSG_ABORTED:{
-                Log.i(TAG, "  MSG_ABORTED");
-                mTransiveStatus = MSG_ABORTED;
+                mWatchDog = WatchDog.getWatchdogTimer("transceive", TRANSCEIVE_WATCHDOG_MS, mSpiManager);
+                if(mWatchDog != null)
+                    mWatchDog.start();
+                else
+                    Log.e(TAG, "EseSpiService:  Watchdog resource not available");
                 break;
             }
         }
@@ -189,7 +271,6 @@ public class EseSpiService implements DeviceHost{
 
         mNfcAla = new NativeEseAla();
         mNfceeAccessControl = new NfceeAccessControl(mContext);
-
         mPrefs = mContext.getSharedPreferences(PREF, Context.MODE_PRIVATE);
         mPrefsEditor = mPrefs.edit();
 
@@ -208,7 +289,6 @@ public class EseSpiService implements DeviceHost{
     public static void enforceUserPermissions(Context context) {
         context.enforceCallingOrSelfPermission(NFC_PERMISSION, NFC_PERM_ERROR);
     }
-
     public void enforceNfceeAdminPerm(String pkg) {
         if (pkg == null) {
             throw new SecurityException("caller must pass a package name");
@@ -266,7 +346,6 @@ public class EseSpiService implements DeviceHost{
         boolean getJcopOsFileInfo() {
             File jcopOsFile;
             Log.i(TAG, "getJcopOsFileInfo");
-
             for (int num = 0; num < 3; num++) {
                 try{
                     jcopOsFile = new File(path[num]);
@@ -286,16 +365,12 @@ public class EseSpiService implements DeviceHost{
             }
             return true;
         }
-
-       /* jcop os Download at boot time */
         void jcopOsDownload() {
             int status = STATUS_FAILED;
             boolean jcopStatus;
             Log.i(TAG, "Jcop Download starts");
-
             SharedPreferences prefs = mContext.getSharedPreferences(PREF,Context.MODE_PRIVATE);
             jcopStatus = getJcopOsFileInfo();
-
             if( jcopStatus == true) {
                 status = mSpiManager.doStartJcopDownload();
                 if(status != STATUS_SUCCESS) {
@@ -309,8 +384,7 @@ public class EseSpiService implements DeviceHost{
                 }
             }
         }
-
-        boolean enableInternal(int timeout) {
+        boolean enableInternal(int timeout, IBinder b) {
             if (mState == EseSpiAdapter.STATE_ON) {
                 Log.i(TAG, "Inside 2nd try returning, Calling application PID :"+Binder.getCallingPid()+" Saved PID :"+mPid);
                 if(mPid != Binder.getCallingPid()){
@@ -320,7 +394,12 @@ public class EseSpiService implements DeviceHost{
                     return true;
                 }
             }
-
+            mOpenSPI = new OpenSPI(Binder.getCallingPid(), b);
+            try {
+                b.linkToDeath(mOpenSPI, 0);
+            } catch (RemoteException e) {
+                mOpenSPI.binderDied();
+            }
             try {
                 Log.i(TAG, "Inside 1st try after thread creation");
                 mRoutingWakeLock.acquire();
@@ -341,6 +420,7 @@ public class EseSpiService implements DeviceHost{
                         Log.i(TAG, "Calling application PID :"+mPid);
                         Intent intent = new Intent(ACTION_ESE_ENABLE_DONE);
                         mContext.sendBroadcast(intent);
+                        Log.i(TAG, "Calling application PID2 :"+mPid);
 /*                        long startTime = System.nanoTime();
                         mSpiManager.doStartJcopDownload();
                         long estimatedTime = System.nanoTime() - startTime;
@@ -353,6 +433,8 @@ public class EseSpiService implements DeviceHost{
                     mRoutingWakeLock.release();
                 }
             } catch(Exception e) {
+                Log.i(TAG, "Something Wrong in EnableInternal");
+                e.printStackTrace();
             }
             synchronized (EseSpiService.this) {
                 if(mSpiManager.doCheckJcopDlAtBoot()) {
@@ -392,24 +474,27 @@ public class EseSpiService implements DeviceHost{
         }
 
         void updateState(int newState) {
+            Log.i(TAG, "Update State:mState:"+mState+"newState:"+newState);
             synchronized (EseSpiService.this) {
                 if (newState == mState) {
                     return;
                 }
-            /*Added for Loader service recover during NFC Off/On*/
             if(newState == EseSpiAdapter.STATE_ON){
+                Log.i(TAG, "Update State:STATE_ON");
                 EseSpiLoaderService nas = new EseSpiLoaderService();
                 nas.LSReexecute();
                 IntentFilter lsFilter = new IntentFilter(EseSpiAdapter.ACTION_ADAPTER_STATE_CHANGED);
                 mContext.registerReceiverAsUser(mAlaReceiver, UserHandle.ALL, lsFilter, null, null);
                }
+                Log.i(TAG, "Update State:Changing State");
                 mState = newState;
                 Intent intent = new Intent(EseSpiAdapter.ACTION_ADAPTER_STATE_CHANGED);
                 intent.setFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
                 intent.putExtra(EseSpiAdapter.EXTRA_ADAPTER_STATE, mState);
                 mContext.sendBroadcast(intent);
+                Log.i(TAG, "BroadCast Sent");
             }
-       }
+        }
 
     class WatchDogThread extends Thread {
         boolean mWatchDogCanceled = false;
@@ -453,15 +538,32 @@ public class EseSpiService implements DeviceHost{
         }
     }
 
+    private class OpenSPI implements IBinder.DeathRecipient {
+        public int pid;
+        public IBinder binder;
+
+        public OpenSPI(int pid, IBinder binder) {
+            this.pid = pid;
+            this.binder = binder;
+        }
+        @Override
+        public void binderDied() {
+            Log.i(TAG, "Tracked app " + pid + " died");
+            mPid = Binder.getCallingPid();
+            saveSpiOnSetting(false);
+            disableInternal();
+        }
+    }
+
     final class EseSpiAdapterService extends IEseSpiAdapter.Stub {
         @Override
-        public boolean enable(int timeout) throws RemoteException {
+        public boolean enable(int timeout,IBinder b) throws RemoteException {
             boolean status = false;
             EseSpiService.enforceAdminPerm(mContext);
             saveSpiOnSetting(true);
             Log.i(TAG,"before enable call mStateValue : " + mState);
             //new EnableDisableTask().execute(TASK_ENABLE);
-            status = enableInternal(timeout);
+            status = enableInternal(timeout, b);
             Log.i(TAG,"mStateValue : " + mState);
             return status;
         }
@@ -470,7 +572,6 @@ public class EseSpiService implements DeviceHost{
         public boolean disable(boolean saveState) throws RemoteException {
             boolean status = false;
             EseSpiService.enforceAdminPerm(mContext);
-
             if (saveState) {
                 saveSpiOnSetting(false);
             }
@@ -499,18 +600,18 @@ public class EseSpiService implements DeviceHost{
         }
 
         @Override
-        public boolean interfaceReset() throws RemoteException {
+        public boolean eseChipReset() throws RemoteException {
             EseSpiService.enforceAdminPerm(mContext);
             if (!isSpiEnabled()) {
                 Log.i(TAG," reset: SPI is not Enabled ");
                 return false;
             }
-            Log.i(TAG,"Perfrom interface reset ");
+            Log.i(TAG,"Perfrom ese chip reset ");
             if(mPid != Binder.getCallingPid())
             {
                 throw new SecurityException("Wrong PID");
             }
-            boolean status = mSpiManager.doIntfReset();
+            boolean status = mSpiManager.doChipReset();
             Log.i(TAG," rest interface status: "+ status);
             return status;
         }
@@ -520,6 +621,7 @@ public class EseSpiService implements DeviceHost{
                 return mState;
             }
         }
+
 
         @Override
         public byte[] transceive(String pkg, byte[] in) throws RemoteException {
@@ -533,8 +635,9 @@ public class EseSpiService implements DeviceHost{
                     {
                         throw new SecurityException("Wrong PID");
                     }
-                    watchDog = new WatchDogThread("transceive", TRANSCEIVE_WATCHDOG_MS);
-                    watchDog.start();
+                    mWatchDog = WatchDog.getWatchdogTimer("transceive", TRANSCEIVE_WATCHDOG_MS, mSpiManager);
+                    if(mWatchDog != null)
+                        mWatchDog.start();
                     try {
                         Log.i(TAG, " _transceive start ...");
                         mRoutingWakeLock.acquire();
@@ -542,7 +645,8 @@ public class EseSpiService implements DeviceHost{
                     }finally {
                         mRoutingWakeLock.release();
                     }
-                    watchDog.cancel();
+                    if(mWatchDog != null)
+                        mWatchDog.cancel();
                     } catch (IOException e) {
                        result = e.getMessage().getBytes();
                        Log.i(TAG,"\tRESULT ERROR  " +e.getMessage());
@@ -552,10 +656,6 @@ public class EseSpiService implements DeviceHost{
                    if(result == null && retryCount < 2){
                        mSpiManager.doReset();
 
-                       try{
-                             watchDog.join();
-                         } catch (java.lang.InterruptedException e) {
-                         }
                    }
 
             }while(result == null && retryCount < 2);
@@ -576,7 +676,6 @@ public class EseSpiService implements DeviceHost{
             Log.i(TAG,"inside transceive ");
             return mSpiManager.manageTransceive(data);
         }
-
         @Override
         public IeSEClientServicesAdapter getSpieSEClientServicesAdapterInterface(){
             if(mEseClientServicesAdapter == null){
@@ -584,12 +683,12 @@ public class EseSpiService implements DeviceHost{
             }
             return mEseClientServicesAdapter;
         }
-
         public int getSeInterface(int type) {
             return mSpiManager.doGetSeInterface(type);
         }
     }
     final class NxpExtrasService extends INxpExtrasService.Stub{
+
         private Bundle writeNoException() {
             Bundle p = new Bundle();
             p.putInt("e", 0);
@@ -644,7 +743,7 @@ public class EseSpiService implements DeviceHost{
             saveSpiOnSetting(true);
             try{
                 Log.i(TAG,"before enable call mStateValue : " + mState);
-                enableInternal(9999);
+                enableInternal(9999,b);
                 Log.i(TAG,"mStateValue : " + mState);
                 result = writeNoException();
             }catch(Exception e){
@@ -662,8 +761,12 @@ public class EseSpiService implements DeviceHost{
             int retryCount =1;
             do {
                 try {
-                    watchDog = new WatchDogThread("transceive", TRANSCEIVE_WATCHDOG_MS);
-                    watchDog.start();
+
+                    mWatchDog = WatchDog.getWatchdogTimer("transceive", TRANSCEIVE_WATCHDOG_MS, mSpiManager);
+                    if (mWatchDog != null) {
+                        mWatchDog.start();
+                    }
+
                     try {
                         Log.i(TAG, " _transceive start ...");
                         mRoutingWakeLock.acquire();
@@ -673,7 +776,11 @@ public class EseSpiService implements DeviceHost{
                     }finally {
                         mRoutingWakeLock.release();
                     }
-                    watchDog.cancel();
+
+                    if (mWatchDog != null) {
+                        mWatchDog.cancel();
+                    }
+
                     } catch (Exception e) {
                        result = e.getMessage().getBytes();
                        Log.i(TAG,"\tRESULT ERROR  " +e.getMessage());
@@ -683,11 +790,6 @@ public class EseSpiService implements DeviceHost{
                    retryCount++;
                    if(result == null && retryCount < 2){
                        mSpiManager.doReset();
-
-                       try{
-                             watchDog.join();
-                         } catch (java.lang.InterruptedException e) {
-                         }
                    }
 
             }while(result == null && retryCount < 2);
@@ -760,10 +862,6 @@ public class EseSpiService implements DeviceHost{
         public int jcopOsDownload(String pkg) throws RemoteException {
             boolean mode;
             int status;
-            if (!isSpiEnabled()) {
-                Log.i(TAG," reset: SPI is not Enabled ");
-                return -1;
-            }
 
             mode = mSpiManager.doCheckJcopDlAtBoot();
             if( mode == false) {
@@ -914,9 +1012,10 @@ public class EseSpiService implements DeviceHost{
                      byte[] lsAppletStatus = {0x6F,0x00};
                          Log.i(TAG, "Started LS recovery since previous session failed");
                          this.isRecovery = true;
-                         WatchDogThread watchDog =
-                               new WatchDogThread("Loader service ", INIT_WATCHDOG_LS_MS);
-                         watchDog.start();
+                         mWatchDog = WatchDog.getWatchdogTimer("Loader service ", INIT_WATCHDOG_LS_MS, mSpiManager);
+                         if(mWatchDog != null)
+                             mWatchDog.start();
+
                          try {
                              mRoutingWakeLock.acquire();
                               try {
@@ -937,7 +1036,10 @@ public class EseSpiService implements DeviceHost{
                                   }
                                   } finally {
                                       this.isRecovery = false;
-                                      watchDog.cancel();
+
+                                      if(mWatchDog != null)
+                                          mWatchDog.cancel();
+
                                       mRoutingWakeLock.release();
                                 }
                             }
@@ -981,9 +1083,12 @@ public class EseSpiService implements DeviceHost{
             if((f.isFile()))
             {
                 Log.i(TAG, "File Found LS update required");
-                WatchDogThread watchDog =
-                       new WatchDogThread("LS Update Loader service ", (INIT_WATCHDOG_LS_MS+INIT_WATCHDOG_LS_MS));
-               watchDog.start();
+
+                mWatchDog = WatchDog.getWatchdogTimer("LoaderService:Update", (2*INIT_WATCHDOG_LS_MS), mSpiManager);
+               if(mWatchDog != null){
+                   mWatchDog.start();
+                }
+
                try {
                        try {
                                /*Reset retry counter*/
@@ -999,7 +1104,8 @@ public class EseSpiService implements DeviceHost{
                                        }
                                }
                        } finally {
-                               watchDog.cancel();
+                                if(mWatchDog != null)
+                                    mWatchDog.cancel();
                        }
                }
                catch(RemoteException ie)
@@ -1156,6 +1262,7 @@ public class EseSpiService implements DeviceHost{
         }
     };
 
+
     boolean isSpiEnabled() {
         synchronized (this) {
             if (mState == EseSpiAdapter.STATE_ON) {
@@ -1174,32 +1281,21 @@ public class EseSpiService implements DeviceHost{
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-1");
             md.update(pkg.getBytes());
-
             byte byteData[] = md.digest();
             Log.i(TAG, "byteData len : " + byteData.length);
-            /*
-            for (int i = 0; i < byteData.length; i++) {
-                sb.append(Integer.toString((byteData[i] & 0xff) + 0x100, 16).substring(1));
-            }
-            //  Log.i(TAG, "sb.toString()" + sb.toString());*/
             return byteData;
         } catch (Exception e) {
             e.printStackTrace();
         }
         return null;
     }
-
     public static String getCallingAppPkg(Context context) {
         String TAG = "getCallingAppPkg";
         ActivityManager am = (ActivityManager) context.getSystemService(context.ACTIVITY_SERVICE);
-
-        // get the info from the currently running task
         List< ActivityManager.RunningTaskInfo > taskInfo = am.getRunningTasks(1);
-
         Log.d("topActivity", "CURRENT Activity ::"
                 + taskInfo.get(0).topActivity.getClassName());
         String s = taskInfo.get(0).topActivity.getClassName();
-
         ComponentName componentInfo = taskInfo.get(0).topActivity;
         componentInfo.getPackageName();
         Log.i(TAG,"componentInfo.getPackageName()" + componentInfo.getPackageName());
@@ -1215,7 +1311,6 @@ public class EseSpiService implements DeviceHost{
                 if (state == EseSpiAdapter.STATE_ON) {
                     Log.e(TAG, "Loader service update start from NFC_ON Broadcast");
                     EseSpiLoaderService nas = new EseSpiLoaderService();
-                    //if(mNfcAla.doGetLSConfigVersion() == LOADER_SERVICE_VERSION_21);
                         mNfcAla.doGetLSConfigVersion();
                         nas.updateLoaderService();
             }

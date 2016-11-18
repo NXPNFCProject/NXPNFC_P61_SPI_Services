@@ -130,7 +130,7 @@ LOCAL_SRC_FILES += \
 	core/java/android/service/wallpaper/IWallpaperConnection.aidl \
 	core/java/android/service/wallpaper/IWallpaperEngine.aidl \
 	core/java/android/service/wallpaper/IWallpaperService.aidl \
-        core/java/com/nxp/ese/spi/IEseSpiAdapter.aidl \
+    core/java/com/nxp/ese/spi/IEseSpiAdapter.aidl \
         core/java/com/nxp/intf/ILoaderService.aidl \
         core/java/com/nxp/intf/IJcopService.aidl \
         core/java/com/nxp/intf/INxpExtrasService.aidl \

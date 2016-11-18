@@ -254,22 +254,18 @@ public final class EseSpiAdapter {
     }
 
     /**
-     * Reset ESE-SPI hardware.
+     * Reset ESE hardware.
      *
-     * <p>This call is asynchronous. Listen for
-     * {@link #ACTION_ADAPTER_STATE_CHANGED} broadcasts to find out when the
-     * operation is complete.
+     * <p>This call is synchronous.
      *
-     * <p>If this returns true, then either ESE-SPI is already on, or
-     * a {@link #ACTION_ADAPTER_STATE_CHANGED} broadcast will be sent
-     * to indicate a state transition. If this returns false, then
-     * there is some problem that prevents an attempt to reset
-     * ESE-SPI.
+     * <p>If this returns true, then ESE is reset .
+     * If this returns false, then
+     * there is some problem that prevents an attempt to reset ESE.
      *
      */
-    public boolean interfaceReset() {
+    public boolean eseChipReset() {
         try {
-            return eseSpiService.interfaceReset();
+            return eseSpiService.eseChipReset();
         } catch (RemoteException e) {
             attemptDeadServiceRecovery(e);
             return false;
@@ -289,9 +285,9 @@ public final class EseSpiAdapter {
      * ESE-SPI.
      *
      */
-    public boolean enable(int timeout) {
+    public boolean enable(int timeout, IBinder b) {
         try {
-            return eseSpiService.enable(timeout);
+            return eseSpiService.enable(timeout,b);
         } catch (RemoteException e) {
             attemptDeadServiceRecovery(e);
             return false;
@@ -323,12 +319,13 @@ public final class EseSpiAdapter {
             return false;
         }
     }
-/*
+
      /**
       * It is used to upgrade the jcop os only if the securement is present
       * <p>Requires {@link android.Manifest.permission#NFC} permission.
       *
       * @throws IOException If a failure occurred during Jcop Os update.
+
      public int doJcopOsUpdate_spi() throws IOException
      {
          try {
@@ -339,22 +336,6 @@ public final class EseSpiAdapter {
          }
     }
     */
-      /**
-     * Helper to create an Nfc Ala object.
-     * <p>Requires {@link android.Manifest.permission#NFC} permission.
-     *
-     * @return the NfcAla, or null if no NfcAla exists
-     */
-
-    /*
-    public EseSpiLoaderService createNfcAla() {
-         try {
-             return new EseSpiLoaderService(eseSpiService.getNfcAlaInterface());
-         } catch (RemoteException e) {
-             Log.e(TAG, "createNfcAla failed", e);
-             return null;
-         }
-    }*/
 
 }
 

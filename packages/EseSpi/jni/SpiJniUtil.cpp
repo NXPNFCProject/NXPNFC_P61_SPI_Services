@@ -54,6 +54,7 @@
 *******************************************************************************/
 jint JNI_OnLoad (JavaVM *jvm, void *reserved)
 {
+    (void)reserved;
     ALOGD ("%s: enter", __FUNCTION__);
     JNIEnv *e = NULL;
 

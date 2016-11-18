@@ -82,16 +82,39 @@ class ScopedAttach
 public:
     ScopedAttach(JavaVM* vm, JNIEnv** env) : vm_(vm)
     {
+#if(NXP_ESE_CHIP_TYPE == P73)
+        isAttached = false;
+        if(0 == vm_->GetEnv((void **) env, JNI_VERSION_1_6))
+        {
+          ALOGD ("%s: Already attached, so don't detach", __FUNCTION__);
+          isAttached = true;
+        }
+        else
+        {
+          ALOGD ("%s: Unattached, so attach then detach", __FUNCTION__);
+        }
+#endif
         vm_->AttachCurrentThread(env, NULL);
     }
 
     ~ScopedAttach()
     {
+#if(NXP_ESE_CHIP_TYPE == P73)
+        if(false == isAttached)
+        {
+          ALOGD ("%s: Detaching", __FUNCTION__);
+          vm_->DetachCurrentThread();
+        }
+#elif(NXP_ESE_CHIP_TYPE == P61)
         vm_->DetachCurrentThread();
+#endif
     }
 
 private:
         JavaVM* vm_;
+#if(NXP_ESE_CHIP_TYPE == P73)
+        BOOLEAN isAttached;
+#endif
 };
 
 

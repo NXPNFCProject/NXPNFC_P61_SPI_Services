@@ -27,9 +27,10 @@ typedef signed   long   INT32;
 typedef signed   char   INT8;
 typedef signed   short  INT16;
 typedef unsigned char   BOOLEAN;
+/*Compiler in Panda setup was giving error for negative enum values*/
+#define EE_ERROR_OPEN_FAIL -1
 typedef enum se_client
 {
-    EE_ERROR_OPEN_FAIL = -1,
     DEFAULT = 0x00,
     LDR_SRVCE,
     JCP_SRVCE,
@@ -44,6 +45,8 @@ bool transceive (UINT8* xmitBuffer, INT32 xmitBufferSize, UINT8* recvBuffer,
                  INT32 recvBufferMaxSize, INT32& recvBufferActualSize, INT32 timeoutMillisec);
 
 void doeSE_Reset();
+#if(NXP_ESE_CHIP_TYPE == P73)
 void doeSE_JcopDownLoadReset();
+#endif
 extern INT16 mHandle;
 #endif /* SPICHANNEL_H_ */

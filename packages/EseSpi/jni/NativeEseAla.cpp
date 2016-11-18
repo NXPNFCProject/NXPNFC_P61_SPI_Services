@@ -25,7 +25,15 @@ extern "C"
 }
 extern "C"
 {
+#if(NXP_ESE_CHIP_TYPE == P61)
 #include "phNxpEseHal_Api.h"
+#include "phNxpEseHal_Apdu.h"
+#elif(NXP_ESE_CHIP_TYPE == P73)
+#include "phNxpEse_Api.h"
+#include "phNxpEse_Apdu_Api.h"
+#else
+#error "Define chip type macro"
+#endif
 #include "phNxpConfig.h"
 }
 #define LS_DEFAULT_VERSION 0x20

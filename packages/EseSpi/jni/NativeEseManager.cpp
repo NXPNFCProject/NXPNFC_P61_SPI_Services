@@ -32,7 +32,6 @@
 #include <JcDnld.h>
 #include "SpiChannel.h"
 
-
 #ifdef ESE_NFC_SYNCHRONIZATION
 #include <linux/ese-nfc-sync.h>
 #endif
@@ -55,8 +54,16 @@ static int fd_ese_nfc_sync; /*file descriptor to hold sync driver handle*/
 
 extern "C"
 {
-#include "phNxpEseHal_Api.h"
 #include "phNxpConfig.h"
+#if(NXP_ESE_CHIP_TYPE == P61)
+#include "phNxpEseHal_Api.h"
+#include "phNxpEseHal_Apdu.h"
+#elif(NXP_ESE_CHIP_TYPE == P73)
+#include "phNxpEse_Api.h"
+#include "phNxpEse_Apdu_Api.h"
+#else
+#error "Define chip type macro"
+#endif
 }
 
 
@@ -69,6 +76,7 @@ extern bool          JCDNLD_DeInit();
 extern bool spiChannelForceClose;
 #define IFSC_JCOPDWNLD    (240)
 #define IFSC_NONJCOPDWNLD (254)
+
 namespace android
 {
 JavaVM * g_vm;
@@ -81,7 +89,9 @@ uint32_t      sTransceiveDataLen = 0;
 jmethodID     gCachedEseManagerListeners;
 const char    *gNativeEseManagerClassName = "com/nxp/ese/dhimpl/NativeEseManager";
 bool          gJcopDwnldinProgress = false;
+#if(NXP_ESE_CHIP_TYPE == P61)
 static void          eseStackCallback (ESESTATUS status, phNxpEseP61_data* eventData);
+#endif
 
 ESESTATUS EseNfcSyncInit(void);
 ESESTATUS EseNfcSyncDeInit(void);
@@ -91,17 +101,21 @@ void sig_handler(int signo);
 #define NAME_NXP_P61_LS_DEFAULT_INTERFACE "NXP_P61_LS_DEFAULT_INTERFACE"
 #define NAME_NXP_P61_JCOP_DEFAULT_INTERFACE "NXP_P61_JCOP_DEFAULT_INTERFACE"
 #define NAME_NXP_P61_LTSM_DEFAULT_INTERFACE "NXP_P61_LTSM_DEFAULT_INTERFACE"
-
 extern bool Spichannel_init(IChannel_t *swp, seClient_t mHandle);
 void Spichannel_Deinit(seClient_t clientType);
 BOOLEAN isIntialized()
 {
     return isInit;
 }
-
+#if(NXP_ESE_CHIP_TYPE == P61)
+void eseStackCB(ESESTATUS status, phNxpEseP61_data* eventData)
+{
+    eseStackCallback (status, eventData);
+}
+#endif
 /**
  * \ingroup spi_package
- * \brief Open P61
+ * \brief Open ESE
  *
  * \param[in]       JNIEnv*
  * \param[in]       jobject
@@ -112,36 +126,68 @@ BOOLEAN isIntialized()
 
 static jboolean nativeEseManager_doInitialize(JNIEnv *e, jobject obj, jint timeout)
 {
+    (void)e;
+    (void)obj;
     ALOGD ("%s: enter...timeout=%d\n", __FUNCTION__, timeout);
     ESESTATUS status = ESESTATUS_SUCCESS;
     BOOLEAN returnStatus = true;
+#if(NXP_ESE_CHIP_TYPE == P61)
+    phNxpEseP61_initParams initParams;
+    memset(&initParams,0x00,sizeof(phNxpEseP61_initParams));
+    initParams.initMode = ESE_MODE_NORMAL;
+#endif
+#if(NXP_ESE_CHIP_TYPE == P73)
+    phNxpEse_initParams initParams;
+    memset(&initParams,0x00,sizeof(phNxpEse_initParams));
+#endif
 
 #ifdef ISO7816_4_APDU_PARSER_ENABLE
     ALOGD(" ISO7816_4_APDU_PARSER_ENABLE ");
-    status = phNxpEseP61_open(NULL);
+#if(NXP_ESE_CHIP_TYPE == P61)
+    status = phNxpEseP61_open(NULL, initParams);
+#elif(NXP_ESE_CHIP_TYPE == P73)
+    status = phNxpEse_open(initParams);
+#endif
 #else
     if(timeout == 9999)
     {
-        status = phNxpEseP61_open(eseStackCallback);
+#if(NXP_ESE_CHIP_TYPE == P61)
+        status = phNxpEseP61_open(eseStackCallback, initParams);
+#elif(NXP_ESE_CHIP_TYPE == P73)
+        status = phNxpEse_open(initParams);
+#endif
     }
     else if(timeout >= 0)
     {
-    status = phNxpEseP61_openPrioSession(eseStackCallback, timeout);
+#if(NXP_ESE_CHIP_TYPE == P61)
+    status = phNxpEseP61_openPrioSession(eseStackCallback, timeout, initParams);
+#elif(NXP_ESE_CHIP_TYPE == P73)
+    status = phNxpEse_openPrioSession(initParams);
+#endif
     }
 #endif
-    ALOGD("phNxpEseP61_open, status = %x", status);
+    ALOGD("phNxpEse_open, status = %x", status);
     if(status == ESESTATUS_SUCCESS)
     {
         isInit=true;
-        mHandle = DEFAULT;
+        if(Spichannel_init(&swp, SPI_SRVCE) != TRUE)
+        {
+            ALOGE("%s: phNxpEse_Transceive Already in use", __FUNCTION__);
+            returnStatus = false;
+        }
+        /* Intialization of protocol stack parameters and the libstatus */
+#if(NXP_ESE_CHIP_TYPE == P73)
+        initParams.initMode = ESE_MODE_NORMAL;
+        status = phNxpEse_init(initParams);
+#endif
     }
-    else
+    if(status != ESESTATUS_SUCCESS)
     {
         isInit=false;
         returnStatus = false;
     }
-    ALOGD ("%s: exit", __FUNCTION__);
 
+    ALOGD ("%s: exit", __FUNCTION__);
     return returnStatus;
 }
 
@@ -158,7 +204,7 @@ static jboolean nativeEseManager_doInitialize(JNIEnv *e, jobject obj, jint timeo
 #ifdef ISO7816_4_APDU_PARSER_ENABLE
 /* this is the test code, which basically parse the 7816-4 Headers from
  * data received from application layer and passed the data in 7816-4 format
- * to phNxpEseP61_7816_Transceive api.
+ * to phNxpEse_7816_Transceive api.
  */
 static jbyteArray nativeEseManager_doTransceive(JNIEnv *e, jobject obj, jbyteArray data)
 {
@@ -174,10 +220,17 @@ static jbyteArray nativeEseManager_doTransceive(JNIEnv *e, jobject obj, jbyteArr
     size_t bufLen = bytes.size();
     ScopedLocalRef<jbyteArray> result(e, NULL);
 
+#if(NXP_ESE_CHIP_TYPE == P61)
     phNxpEseP61_7816_cpdu_t pCmd;
     phNxpEseP61_7816_rpdu_t pRsp;
     memset(&pCmd,0x00,sizeof(phNxpEseP61_7816_cpdu_t));
     memset(&pRsp,0x00,sizeof(phNxpEseP61_7816_rpdu_t));
+#elif(NXP_ESE_CHIP_TYPE == P73)
+    phNxpEse_7816_cpdu_t pCmd;
+    phNxpEse_7816_rpdu_t pRsp;
+    memset(&pCmd,0x00,sizeof(phNxpEse_7816_cpdu_t));
+    memset(&pRsp,0x00,sizeof(phNxpEse_7816_rpdu_t));
+#endif
     ALOGD("Data lenght = %d\n", bufLen);
 
     pCmd.cla = buf[0]; /* Class of instruction */
@@ -319,10 +372,14 @@ static jbyteArray nativeEseManager_doTransceive(JNIEnv *e, jobject obj, jbyteArr
     pRsp.len = 0;
     ALOGD("cla = 0x%x , ins = 0x%x , p1 = 0x%x, p2 = 0x%x , lc =0x%x, cpdu_type= 0x%x, le_type= 0x%x, le = 0x%x"
             ,pCmd.cla, pCmd.ins, pCmd.p1, pCmd.p2, pCmd.lc, pCmd.cpdu_type, pCmd.le_type, pCmd.le);
+#if(NXP_ESE_CHIP_TYPE == P61)
     status = phNxpEseP61_7816_Transceive(&pCmd, &pRsp);
+#elif(NXP_ESE_CHIP_TYPE == P73)
+    status = phNxpEse_7816_Transceive(&pCmd, &pRsp);
+#endif
     if (status == ESESTATUS_SUCCESS)
     {
-        ALOGD ("%s: phNxpEseP61_7816_Transceive Success pRsp.len %d", __FUNCTION__, pRsp.len);
+        ALOGD ("%s: phNxpEse_7816_Transceive Success pRsp.len %d", __FUNCTION__, pRsp.len);
         temp_buff = (uint8_t *)malloc((pRsp.len + 2) * sizeof(uint8_t));
         if (temp_buff == NULL)
         {
@@ -346,7 +403,7 @@ static jbyteArray nativeEseManager_doTransceive(JNIEnv *e, jobject obj, jbyteArr
     }
     else
     {
-        ALOGE ("%s: phNxpEseP61_7816_Transceive Failed", __FUNCTION__);
+        ALOGE ("%s: phNxpEse_7816_Transceive Failed", __FUNCTION__);
         return NULL;
     }
 
@@ -362,22 +419,29 @@ static jbyteArray nativeEseManager_doTransceive(JNIEnv *e, jobject obj, jbyteArr
 #else
 static jbyteArray nativeEseManager_doTransceive(JNIEnv *e, jobject obj, jbyteArray data)
 {
+    (void)obj;
     ALOGD ("%s: enter", __FUNCTION__);
     uint8_t* buf = NULL;
     ESESTATUS status = ESESTATUS_SUCCESS;
+#if(NXP_ESE_CHIP_TYPE == P73)
+    phNxpEse_data pCmd;
+    phNxpEse_data pRsp;
+    memset(&pCmd,0x00,sizeof(phNxpEse_data));
+    memset(&pRsp,0x00,sizeof(phNxpEse_data));
+#endif
     // get input buffer and length from java call
     ScopedByteArrayRO bytes(e, data);
+#if(NXP_ESE_CHIP_TYPE == P61)
     buf = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(&bytes[0]));
     size_t bufLen = bytes.size();
+#elif(NXP_ESE_CHIP_TYPE == P73)
+    pCmd.p_data = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(&bytes[0]));
+    size_t bufLen = bytes.size();
+    pCmd.len = bufLen;
+#endif
     ScopedLocalRef<jbyteArray> result(e, NULL);
 
-
-    if(Spichannel_init(&swp, SPI_SRVCE) != TRUE)
-    {
-        ALOGE("%s: phNxpEseP61_Transceive Already in use", __FUNCTION__);
-        return result.release();
-    }
-
+#if(NXP_ESE_CHIP_TYPE == P61)
     SyncEventGuard guard (sTransceiveEvent);
     status = phNxpEseP61_Transceive(bufLen, buf);
     if (status == ESESTATUS_SUCCESS)
@@ -386,8 +450,7 @@ static jbyteArray nativeEseManager_doTransceive(JNIEnv *e, jobject obj, jbyteArr
         ALOGE ("%s: phNxpEseP61_Transceive Failed", __FUNCTION__);
 
     ALOGD ("%s: status: %d , sTransceiveDataLen :%d", __FUNCTION__,status , sTransceiveDataLen);
-    /*Release the handle so that other clients can use*/
-    mHandle = DEFAULT;
+
     if(sTransceiveDataLen != 0)
     {
         result.reset(e->NewByteArray(sTransceiveDataLen));
@@ -409,10 +472,43 @@ static jbyteArray nativeEseManager_doTransceive(JNIEnv *e, jobject obj, jbyteArr
 
     sTransceiveData = NULL;
     sTransceiveDataLen = 0;
+#elif(NXP_ESE_CHIP_TYPE == P73)
+    status = phNxpEse_Transceive(&pCmd, &pRsp);
+    if (status == ESESTATUS_SUCCESS)
+    {
+        ALOGD ("%s: phNxpEse_Transceive Success", __FUNCTION__);
+        if(pRsp.len != 0)
+        {
+            result.reset(e->NewByteArray(pRsp.len));
+        }
+        else /* if transceive is success but length is zero */
+        {
+            ALOGE ("%s: Data reached JNI: but data length is zero", __FUNCTION__);
+            return NULL;
+        }
+    }
+    else
+    {
+        ALOGE ("%s: phNxpEse_Transceive Failed", __FUNCTION__);
+        return NULL;
+    }
+
+    if (result.get() != NULL)
+    {
+        e->SetByteArrayRegion(result.get(), 0, pRsp.len, (jbyte *) pRsp.p_data);
+    }
+    else
+        ALOGE ("%s: Failed to allocate java byte array", __FUNCTION__);
+
+    if (pRsp.p_data != NULL)
+        free (pRsp.p_data);
+
+    pRsp.p_data = NULL;
+    pRsp.len = 0;
+#endif
     //e->ReleaseByteArrayElements (data, (jbyte *) buf, JNI_ABORT);
     ALOGD ("%s: Exit", __FUNCTION__);
     return result.release();
-
 }
 #endif
 /**
@@ -428,6 +524,8 @@ static jbyteArray nativeEseManager_doTransceive(JNIEnv *e, jobject obj, jbyteArr
 
 static int nativeEseManager_doStartDownload(JNIEnv *e, jobject obj)
 {
+    (void)e;
+    (void)obj;
     ALOGD ("%s: enter", __FUNCTION__);
     ESESTATUS status = STATUS_FAILED;
     bool stat = false;
@@ -437,7 +535,12 @@ static int nativeEseManager_doStartDownload(JNIEnv *e, jobject obj)
 
     if(Spichannel_init(&swp, JCP_SRVCE))
     {
+
+#if(NXP_ESE_CHIP_TYPE == P61)
         phNxpEseP61_setIfsc(IFSC_JCOPDWNLD);
+#elif(NXP_ESE_CHIP_TYPE == P73)
+        phNxpEse_setIfsc(IFSC_JCOPDWNLD);
+#endif
         status = JCDNLD_Init(&swp);
         if(status != STATUS_SUCCESS)
         {
@@ -445,12 +548,18 @@ static int nativeEseManager_doStartDownload(JNIEnv *e, jobject obj)
         }else
         {
             status = JCDNLD_StartDownload();
+            if(status != ESESTATUS_SUCCESS)
+            {
+                ALOGE("%s: JCDNLD_StartDownload failed", __FUNCTION__);
+            }
         }
-
         stat = JCDNLD_DeInit();
-
+#if(NXP_ESE_CHIP_TYPE == P61)
         phNxpEseP61_setIfsc(IFSC_NONJCOPDWNLD);
+#elif(NXP_ESE_CHIP_TYPE == P73)
+        phNxpEse_setIfsc(IFSC_NONJCOPDWNLD);
         Spichannel_Deinit(JCP_SRVCE);
+#endif
     }
     gJcopDwnldinProgress = false;
     ALOGD ("%s: Exit; status =0x%X", __FUNCTION__,status);
@@ -479,7 +588,12 @@ bool Spichannel_init(IChannel_t *swp, seClient_t clientType)
         swp->close = close;
         swp->transceive = transceive;
         swp->doeSE_Reset = doeSE_Reset;
+#if(NXP_ESE_CHIP_TYPE == P73)
         swp->doeSE_JcopDownLoadReset = doeSE_JcopDownLoadReset;
+#elif(NXP_ESE_CHIP_TYPE == P61)
+        swp->doeSE_JcopDownLoadReset = doeSE_Reset;
+#endif
+
         stat = true;
     }
     /*Otherwise handle is not available*/
@@ -518,19 +632,36 @@ void Spichannel_Deinit(seClient_t clientType)
 
 static jboolean nativeEseManager_doDeinitialize(JNIEnv *e, jobject obj)
 {
+    (void)e;
+    (void)obj;
     ESESTATUS status = ESESTATUS_SUCCESS;
     BOOLEAN returnStatus = true;
     ALOGD ("%s: enter", __FUNCTION__);
     if(mHandle == SPI_SRVCE)
     {
-        returnStatus = false;
+        /*Release the handle so that other clients can use*/
+        mHandle = DEFAULT;
     }
-    if(status  != phNxpEseP61_close())
+#if(NXP_ESE_CHIP_TYPE == P73)
+    if(status != phNxpEse_deInit())
     {
         returnStatus = false;
     }
+    else
+    {
+#endif
+    #if(NXP_ESE_CHIP_TYPE == P61)
+        if(status  != phNxpEseP61_close())
+    #elif(NXP_ESE_CHIP_TYPE == P73)
+        if(status  != phNxpEse_close())
+    #endif
+        {
+            returnStatus = false;
+        }
+#if(NXP_ESE_CHIP_TYPE == P73)
+    }
+#endif
     isInit=false;
-    spiChannelForceClose = true;
     ALOGD ("%s: Exit", __FUNCTION__);
     return returnStatus;
 }
@@ -547,10 +678,16 @@ static jboolean nativeEseManager_doDeinitialize(JNIEnv *e, jobject obj)
  */
 static jboolean nativeEseManager_doReset(JNIEnv *e, jobject obj)
 {
+    (void)e;
+    (void)obj;
     ESESTATUS status = ESESTATUS_SUCCESS;
     BOOLEAN returnStatus = true;
     ALOGD ("%s: enter", __FUNCTION__);
+#if(NXP_ESE_CHIP_TYPE == P61)
     if(status != phNxpEseP61_reset())
+#elif(NXP_ESE_CHIP_TYPE == P73)
+    if(status != phNxpEse_reset())
+#endif
     {
         returnStatus = false;
     }
@@ -569,18 +706,25 @@ static jboolean nativeEseManager_doReset(JNIEnv *e, jobject obj)
  * \retval True if ok.
  *
  */
-static jboolean nativeEseManager_doIntfReset(JNIEnv *e, jobject obj)
+static jboolean nativeEseManager_doChipReset(JNIEnv *e, jobject obj)
 {
+    (void)e;
+    (void)obj;
+#if(NXP_ESE_CHIP_TYPE == P73)
     ESESTATUS status = ESESTATUS_SUCCESS;
     BOOLEAN returnStatus = true;
     ALOGD ("%s: enter", __FUNCTION__);
-    if(status != phNxpEseP61_SPIIntfReset())
+    if(status != phNxpEse_chipReset())
     {
         returnStatus = false;
     }
     isInit=true;
     ALOGD ("%s: Exit, status: %d", __FUNCTION__,status);
     return returnStatus;
+#elif(NXP_ESE_CHIP_TYPE == P61)
+    ALOGD ("%s: API not supported", __FUNCTION__);
+    return false;
+#endif
 }
 /**
  * \ingroup spi_package
@@ -595,10 +739,12 @@ static jboolean nativeEseManager_doIntfReset(JNIEnv *e, jobject obj)
 
 static void nativeEseManager_doAbort(JNIEnv *e, jobject obj)
 {
-    ALOGD ("%s: enter", __FUNCTION__);
+    (void)e;
+    (void)obj;
 
-    eseStackCallback(ESESTATUS_ABORTED, NULL);
-
+    ALOGD ("%s: enter; Status:ESESTATUS_ABORTED", __FUNCTION__);
+    SyncEventGuard guard (sTransceiveEvent);
+    sTransceiveEvent.notifyOne();
     ALOGD ("%s: exit", __FUNCTION__);
 }
 
@@ -693,7 +839,7 @@ static JNINativeMethod methods[] = {
         {"doDeinitialize", "()Z", (void*)nativeEseManager_doDeinitialize },
         {"doTransceive", "([B)[B", (void*)nativeEseManager_doTransceive },
         {"doReset", "()Z", (void*)nativeEseManager_doReset },
-        {"doIntfReset", "()Z", (void*)nativeEseManager_doIntfReset },
+        {"doChipReset", "()Z", (void*)nativeEseManager_doChipReset },
         {"initializeNativeStructure", "()Z", (void*)nativeEseManager_initNativeStruct},
         {"doStartJcopDownload", "()I", (void*)nativeEseManager_doStartDownload},
         {"doAbort", "()V", (void*)nativeEseManager_doAbort},
@@ -709,13 +855,17 @@ static JNINativeMethod methods[] = {
  *                  eventData: Event data.
  *
  * \param[in]       ESESTATUS
- * \param[in]       phNxpEseP61_data*
+ * \param[in]       phNxpEse_data*
  *
  * \retval void
  *
  */
 
+#if(NXP_ESE_CHIP_TYPE == P61)
 static void eseStackCallback (ESESTATUS status, phNxpEseP61_data* eventData)
+#elif(NXP_ESE_CHIP_TYPE == P73)
+static void eseStackCallback (ESESTATUS status, phNxpEse_data* eventData)
+#endif
 {
     ALOGD("%s: event= %u", __FUNCTION__, status);
     JNIEnv* e = NULL;
@@ -746,8 +896,10 @@ static void eseStackCallback (ESESTATUS status, phNxpEseP61_data* eventData)
             if (gJcopDwnldinProgress == false)
                 e->CallVoidMethod (mNativeData->manager, android::gCachedEseManagerListeners, 0);
         }
+#if(NXP_ESE_CHIP_TYPE == P61)
         SyncEventGuard guard (sTransceiveEvent);
         sTransceiveEvent.notifyOne();
+#endif
         break;
     }
 
@@ -769,16 +921,8 @@ static void eseStackCallback (ESESTATUS status, phNxpEseP61_data* eventData)
         }
         break;
     }
+    }
 
-    case ESESTATUS_ABORTED:
-    {
-        ALOGD ("%s: Status:ESESTATUS_ABORTED", __FUNCTION__);
-        e->CallVoidMethod (mNativeData->manager, android::gCachedEseManagerListeners, 3);
-        SyncEventGuard guard (sTransceiveEvent);
-        sTransceiveEvent.notifyOne();
-        break;
-    }
-    }
     ALOGD ("%s: exit", __FUNCTION__);
 }
 
