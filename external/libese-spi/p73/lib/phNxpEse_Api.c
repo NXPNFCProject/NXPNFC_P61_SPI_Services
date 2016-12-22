@@ -987,7 +987,8 @@ static int phNxpEse_readPacket(void *pDevHandle, uint8_t * pBuffer, int nNbBytes
         ret = phPalEse_read(pDevHandle, pBuffer, 1);
         if (ret <= 0)
         {
-            NXPLOG_PAL_E("_spi_read() [HDR]errno : %x ret : %X", errno, ret);
+            /*Polling for read on spi, hence Debug log*/
+            NXPLOG_PAL_D("_spi_read() [HDR]errno : %x ret : %X", errno, ret);
         }
         if (pBuffer[0] != RECIEVE_PACKET_SOF)
             phPalEse_sleep(WAKE_UP_DELAY); /*sleep for 1ms*/
@@ -995,7 +996,7 @@ static int phNxpEse_readPacket(void *pDevHandle, uint8_t * pBuffer, int nNbBytes
 
     if (pBuffer[0] == RECIEVE_PACKET_SOF)
     {
-        NXPLOG_ESELIB_D("0x%x", pBuffer[0]);
+        NXPLOG_ESELIB_D("SOF: 0x%x", pBuffer[0]);
         total_count = 1;
         /* Read the HEADR of Two bytes*/
         ret = phPalEse_read(pDevHandle, &pBuffer[1], 2);
@@ -1025,8 +1026,8 @@ static int phNxpEse_readPacket(void *pDevHandle, uint8_t * pBuffer, int nNbBytes
     {
         ret = -1;
     }
-    return ret;
     NXPLOG_ESELIB_D("%s Exit ret = %d", __FUNCTION__, ret);
+    return ret;
 }
 /******************************************************************************
  * Function         phNxpEse_WriteFrame
@@ -1166,6 +1167,32 @@ void* phNxpEse_calloc(size_t datatype, size_t size)
 void phNxpEse_free(void* ptr)
 {
     return phPalEse_free(ptr);
+}
+
+/******************************************************************************
+ * Function         phNxpEseP61_DisablePwrCntrl
+ *
+ * Description      This function disables eSE GPIO power off/on control
+ *                  when enabled
+ *
+ * Returns         SUCCESS/FAIL.
+ *
+ ******************************************************************************/
+ESESTATUS phNxpEse_DisablePwrCntrl(uint8_t required)
+{
+    ESESTATUS status = ESESTATUS_SUCCESS;
+    NXPLOG_ESELIB_E("%s Disable power control required = %d", __FUNCTION__, required);
+#if(NXP_SECURE_TIMER_SESSION == TRUE)
+    status = phNxpEse_SPM_DisablePwrControl(required);
+    if(status != ESESTATUS_SUCCESS)
+    {
+        NXPLOG_ESELIB_E("%s phNxpEseP61_DisablePwrCntrl: failed", __FUNCTION__);
+    }
+#else
+    NXPLOG_ESELIB_E("%s phNxpEseP61_DisablePwrCntrl: not supported", __FUNCTION__);
+    status = ESESTATUS_FAILED;
+#endif
+    return status;
 }
 
 #if(NXP_NFCC_SPI_FW_DOWNLOAD_SYNC == TRUE)

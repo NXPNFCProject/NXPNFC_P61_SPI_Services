@@ -349,6 +349,31 @@ SPMSTATUS phNxpEse_SPM_SetPwrScheme(long arg)
 }
 
 /******************************************************************************
+ * Function         phNxpEseP61_SPM_EnableDisablePwrCntrl
+ *
+ * Description      This function request to the nfc i2c driver
+ *                  to set the chip type and power scheme.
+ *
+ * Returns          On Success SPMSTATUS_SUCCESS else proper error code
+ *
+ ******************************************************************************/
+SPMSTATUS phNxpEse_SPM_DisablePwrControl(long arg)
+{
+    int32_t ret = -1;
+    SPMSTATUS status = SPMSTATUS_SUCCESS;
+
+    NXPLOG_ESELIB_D("%s : Inhibit power control is set to  = 0x%ld", __FUNCTION__, arg);
+    ret = phPalEse_ioctl(phPalEse_e_DisablePwrCntrl, pEseDeviceHandle, arg);
+    if(ret < 0)
+    {
+        ALOGE("%s : failed errno = 0x%x", __FUNCTION__, errno);
+        status = SPMSTATUS_FAILED;
+    }
+
+    return status;
+}
+
+/******************************************************************************
  * Function         phNxpEse_SPM_GetState
  *
  * Description      This function gets the current power state of ESE

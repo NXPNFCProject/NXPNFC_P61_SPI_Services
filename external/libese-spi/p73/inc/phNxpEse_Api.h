@@ -73,12 +73,12 @@ typedef struct phNxpEse_initParams
 /*!
  * \brief SEAccess kit MW Major version
  */
-#define ESELIB_MW_VERSION_MAJ                   (0x0)
+#define ESELIB_MW_VERSION_MAJ                   (0x1)
 
 /*!
  * \brief SEAccess kit MW Minor version
  */
-#define ESELIB_MW_VERSION_MIN                   (0x3)
+#define ESELIB_MW_VERSION_MIN                   (0x0)
 
 /******************************************************************************
  * \ingroup spi_libese
@@ -283,5 +283,15 @@ void* phNxpEse_calloc(size_t dataType, size_t size);
  */
 void phNxpEse_free(void* ptr);
 
+/**
++ * \ingroup spi_libese
++ * \brief This function perfroms disbale/enable power control
++ *
++ * \param[in]       void
++ *
++ * \retval ESESTATUS_SUCCESS Always return ESESTATUS_SUCCESS (0).
++ *
++*/
+ESESTATUS phNxpEse_DisablePwrCntrl(uint8_t required);
 /** @} */
 #endif /* _PHNXPSPILIB_API_H_ */

@@ -30,4 +30,5 @@ interface IEseSpiAdapter {
     byte[] transceive(in String pkg, in byte[] data_in);
     int getSeInterface(int type);
     IeSEClientServicesAdapter getSpieSEClientServicesAdapterInterface();
+    boolean disablePowerControl(boolean required);
 }

@@ -336,6 +336,16 @@ public final class EseSpiAdapter {
          }
     }
     */
+    public boolean disablePowerControl(boolean required) throws IOException
+    {
+        try {
+            return eseSpiService.disablePowerControl(required);
+        } catch (RemoteException e) {
+            Log.e(TAG, "RemoteException in disablePowerControl(): ", e);
+            throw new IOException("RemoteException in disablePowerControl()");
+        }
+    }
+
 
 }
 

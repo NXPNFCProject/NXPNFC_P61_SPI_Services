@@ -46,7 +46,8 @@ typedef enum
     phPalEse_e_ChipRst,      /*!< eSE Chip reset using ISO RST pin*/
     phPalEse_e_EnableThroughputMeasurement, /*!< Enable throughput measurement */
     phPalEse_e_SetPowerScheme, /*!< Set power scheme */
-    phPalEse_e_GetSPMStatus    /*!< Get SPM(power mgt) status */
+    phPalEse_e_GetSPMStatus,    /*!< Get SPM(power mgt) status */
+    phPalEse_e_DisablePwrCntrl
 #if(NXP_ESE_JCOP_DWNLD_PROTECTION == TRUE)
     ,phPalEse_e_SetJcopDwnldState, /*!< Set Jcop Download state */
 #endif

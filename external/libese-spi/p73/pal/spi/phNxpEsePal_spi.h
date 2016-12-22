@@ -95,6 +95,13 @@
  */
 #define P61_SET_DWNLD_STATUS    _IOW(P61_MAGIC, 0x09, long)
 
+
+/*!
+ * \brief This function is used to set disable ESE GPIO
+ *  state On&Off
+ */
+#define P61_INHIBIT_PWR_CNTRL  _IOW(P61_MAGIC, 0x0A, long)
+
 /* Function declarations */
 /**
  * \ingroup eSe_PAL_Spi

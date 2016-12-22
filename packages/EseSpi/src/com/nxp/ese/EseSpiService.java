@@ -394,6 +394,10 @@ public class EseSpiService implements DeviceHost{
                     return true;
                 }
             }
+            /*LS cleanup if pending*/
+            EseSpiLoaderService nas = new EseSpiLoaderService();
+            nas.LSReexecute();
+
             mOpenSPI = new OpenSPI(Binder.getCallingPid(), b);
             try {
                 b.linkToDeath(mOpenSPI, 0);
@@ -481,8 +485,6 @@ public class EseSpiService implements DeviceHost{
                 }
             if(newState == EseSpiAdapter.STATE_ON){
                 Log.i(TAG, "Update State:STATE_ON");
-                EseSpiLoaderService nas = new EseSpiLoaderService();
-                nas.LSReexecute();
                 IntentFilter lsFilter = new IntentFilter(EseSpiAdapter.ACTION_ADAPTER_STATE_CHANGED);
                 mContext.registerReceiverAsUser(mAlaReceiver, UserHandle.ALL, lsFilter, null, null);
                }
@@ -685,6 +687,13 @@ public class EseSpiService implements DeviceHost{
         }
         public int getSeInterface(int type) {
             return mSpiManager.doGetSeInterface(type);
+        }
+
+       @Override
+        public boolean disablePowerControl(boolean required) throws RemoteException {
+            synchronized (EseSpiService.this) {
+                return mSpiManager.doDisablePowerControl(required);
+            }
         }
     }
     final class NxpExtrasService extends INxpExtrasService.Stub{

@@ -209,6 +209,7 @@ typedef struct phNxpEseProto7816
   unsigned long int wtx_counter_limit; /*!< Max. WTX counter limit */
   unsigned long int wtx_counter; /*!< WTX count tracker */
   uint8_t timeoutCounter; /*!< Keeps track of number of timeout happened. Stack exits after it reaches max. count  */
+  phNxpEseProto7816_FrameTypes_t lastSentNonErrorframeType; /*!< Copy of the last sent non-error frame type: R-ACK, S-frame, I-frame */
 }phNxpEseProto7816_t;
 
 /*!

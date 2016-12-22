@@ -206,6 +206,18 @@ SPMSTATUS phNxpEse_SPM_RelAccess(void);
  *        SPMSTATUS_FAILED - if reset request is failed \n
  */
 SPMSTATUS phNxpEse_SPM_SetPwrScheme(long arg);
+/**
++ * \brief This function request to disable eSE GPIO
++ * power control Off/On.
++  *
++ * \param[in]       none
++ * \param[out]      none
++ *
++ * \retval SPMSTATUS_SUCCESS on Success #if nfc i2c driver
++ *        successfully holds power control.
++ *        SPMSTATUS_FAILED - if reset request is failed \n
++ */
+SPMSTATUS phNxpEseP_SPM_DisablePwrControl(long arg);
 #if(NXP_ESE_JCOP_DWNLD_PROTECTION == TRUE)
 /******************************************************************************
  * Function         phNxpEse_SPM_SetJcopDwnldState

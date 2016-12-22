@@ -748,6 +748,22 @@ static void nativeEseManager_doAbort(JNIEnv *e, jobject obj)
     ALOGD ("%s: exit", __FUNCTION__);
 }
 
+static jboolean nativeEseManager_doDisablePwrCntrl(JNIEnv *e, jobject obj, jboolean required)
+{
+    ESESTATUS status = ESESTATUS_SUCCESS;
+    BOOLEAN ret = false;
+    if(status !=phNxpEse_DisablePwrCntrl(required))
+    {
+        ALOGD("%s: phNxpEseP61_DisablePwrCntrl failed status %d", __FUNCTION__, status);
+    }
+    else
+    {
+        ret = true;
+        ALOGD("%s: phNxpEseP61_DisablePwrCntrl failed status %d", __FUNCTION__, status);
+    }
+    return ret;
+}
+
 static int nativeEseManager_doGetSeInterface(JNIEnv *e, jobject obj, jint type)
 {
     unsigned long num = 2;
@@ -843,6 +859,7 @@ static JNINativeMethod methods[] = {
         {"initializeNativeStructure", "()Z", (void*)nativeEseManager_initNativeStruct},
         {"doStartJcopDownload", "()I", (void*)nativeEseManager_doStartDownload},
         {"doAbort", "()V", (void*)nativeEseManager_doAbort},
+        {"doDisablePowerControl", "(Z)Z", (void*)nativeEseManager_doDisablePwrCntrl},
         {"doGetSeInterface", "(I)I", (void*)nativeEseManager_doGetSeInterface},
         {"doCheckJcopDlAtBoot", "()Z", (void*)nativeEseManager_doCheckJcopDlAtBoot}
 

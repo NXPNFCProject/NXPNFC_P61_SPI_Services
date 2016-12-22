@@ -27,18 +27,21 @@
     #define NXP_ESE_END_OF_SESSION                FALSE
     #define NXP_NFCC_SPI_FW_DOWNLOAD_SYNC         FALSE
     #define NXP_ESE_JCOP_DWNLD_PROTECTION         FALSE
+    #define NXP_SECURE_TIMER_SESSION              FALSE
 #elif(NFC_NXP_CHIP_TYPE == PN66T)
     #define NXP_POWER_SCHEME_SUPPORT              FALSE
     #define NXP_ESE_P73_ISO_RST                   FALSE
     #define NXP_ESE_END_OF_SESSION                FALSE
     #define NXP_NFCC_SPI_FW_DOWNLOAD_SYNC         FALSE
     #define NXP_ESE_JCOP_DWNLD_PROTECTION         FALSE
+    #define NXP_SECURE_TIMER_SESSION              FALSE
 #elif(NFC_NXP_CHIP_TYPE == PN67T)
     #define NXP_POWER_SCHEME_SUPPORT              FALSE
     #define NXP_ESE_P73_ISO_RST                   FALSE
     #define NXP_ESE_END_OF_SESSION                FALSE
     #define NXP_NFCC_SPI_FW_DOWNLOAD_SYNC         FALSE
     #define NXP_ESE_JCOP_DWNLD_PROTECTION         FALSE
+    #define NXP_SECURE_TIMER_SESSION              FALSE
 #elif(NFC_NXP_CHIP_TYPE == PN80T)
     #define NXP_POWER_SCHEME_SUPPORT              TRUE
     #define NXP_ESE_P73_ISO_RST                   TRUE
@@ -46,6 +49,8 @@
     #define NXP_ESE_WTX_RES_DELAY                 TRUE
     #define NXP_ESE_JCOP_DWNLD_PROTECTION         TRUE
     #define NXP_NFCC_SPI_FW_DOWNLOAD_SYNC         TRUE
+    #define NXP_SECURE_TIMER_SESSION              TRUE
 #endif
 
 #endif                          /* end of #ifndef NXP_ESE_FEATURES_H */
+

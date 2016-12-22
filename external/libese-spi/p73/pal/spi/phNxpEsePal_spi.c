@@ -118,11 +118,6 @@ int phPalEse_spi_read(void *pDevHandle, uint8_t * pBuffer, int nNbBytesToRead)
     int ret = -1;
     NXPLOG_PAL_D("%s Read Requested %d bytes", __FUNCTION__, nNbBytesToRead);
     ret = read((intptr_t)pDevHandle, (void *)pBuffer, (nNbBytesToRead));
-    if (ret < 0)
-    {
-         NXPLOG_PAL_E("_spi_read() [HDR]errno : %x ret : %X", errno, ret);
-    }
-
     NXPLOG_PAL_D(" read returned= %d", ret);
     return ret;
 }
@@ -256,6 +251,9 @@ int phPalEse_spi_ioctl(phPalEse_ControlCode_t eControlCode, void *pDevHandle, lo
         ret = ioctl((intptr_t)pDevHandle, P61_SET_DWNLD_STATUS, level);
         break;
 #endif
+    case phPalEse_e_DisablePwrCntrl:
+        ret = ioctl((intptr_t)pDevHandle, P61_INHIBIT_PWR_CNTRL, level);
+        break;
     default:
         break;
     }

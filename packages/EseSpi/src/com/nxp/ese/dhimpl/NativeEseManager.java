@@ -75,6 +75,8 @@ public class NativeEseManager{
 
     public native byte[] doTransceive(byte[] data);
 
+    public native boolean doDisablePowerControl(boolean required);
+
     public boolean deinitialize() {
         SharedPreferences prefs = mContext.getSharedPreferences(PREF, Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = prefs.edit();
