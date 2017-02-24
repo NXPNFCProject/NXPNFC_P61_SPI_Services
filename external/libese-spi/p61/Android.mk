@@ -55,7 +55,7 @@ LOCAL_C_INCLUDES += \
 	$(LOCAL_PATH)/hal \
 	$(LOCAL_PATH)/log \
 	$(LOCAL_PATH)/tml \
-        $(LOCAL_PATH)/include \
+        $(LOCAL_PATH)/../common/include \
         $(LOCAL_PATH)/spm \
 
 else
@@ -67,7 +67,7 @@ LOCAL_C_INCLUDES += \
 	$(LOCAL_PATH)/hal \
 	$(LOCAL_PATH)/log \
 	$(LOCAL_PATH)/tml \
-        $(LOCAL_PATH)/include \
+        $(LOCAL_PATH)/../common/include \
         $(LOCAL_PATH)/spm \
 
 endif

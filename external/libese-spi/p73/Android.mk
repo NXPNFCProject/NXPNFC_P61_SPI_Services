@@ -75,7 +75,7 @@ LOCAL_C_INCLUDES += \
 	$(LOCAL_PATH)/log \
 	$(LOCAL_PATH)/pal/spi \
 	$(LOCAL_PATH)/pal \
-	$(LOCAL_PATH)/include \
+	$(LOCAL_PATH)/../common/include \
 
 else
 LOCAL_SHARED_LIBRARIES := liblog libcutils libhardware_legacy libdl
@@ -87,7 +87,7 @@ LOCAL_C_INCLUDES += \
 	$(LOCAL_PATH)/log \
 	$(LOCAL_PATH)/pal/spi \
 	$(LOCAL_PATH)/pal \
-	$(LOCAL_PATH)/include \
+	$(LOCAL_PATH)/../common/include \
 
 endif
 

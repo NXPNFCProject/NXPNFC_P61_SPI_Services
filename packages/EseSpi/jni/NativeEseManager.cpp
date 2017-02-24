@@ -55,6 +55,7 @@ static int fd_ese_nfc_sync; /*file descriptor to hold sync driver handle*/
 extern "C"
 {
 #include "phNxpConfig.h"
+#include "NXP_ESE_FEATURES.h"
 #if(NXP_ESE_CHIP_TYPE == P61)
 #include "phNxpEseHal_Api.h"
 #include "phNxpEseHal_Apdu.h"
@@ -752,6 +753,7 @@ static jboolean nativeEseManager_doDisablePwrCntrl(JNIEnv *e, jobject obj, jbool
 {
     ESESTATUS status = ESESTATUS_SUCCESS;
     BOOLEAN ret = false;
+#if(NXP_SECURE_TIMER_SESSION == TRUE)
     if(status !=phNxpEse_DisablePwrCntrl(required))
     {
         ALOGD("%s: phNxpEseP61_DisablePwrCntrl failed status %d", __FUNCTION__, status);
@@ -761,6 +763,7 @@ static jboolean nativeEseManager_doDisablePwrCntrl(JNIEnv *e, jobject obj, jbool
         ret = true;
         ALOGD("%s: phNxpEseP61_DisablePwrCntrl failed status %d", __FUNCTION__, status);
     }
+#endif
     return ret;
 }
 

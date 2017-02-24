@@ -65,5 +65,6 @@ void resetNxpConfig(void);
 #define NAME_NXP_SOF_WRITE           "NXP_SOF_WRITE"
 #define NAME_NXP_TP_MEASUREMENT      "NXP_TP_MEASUREMENT"
 #define NAME_NXP_SPI_INTF_RST_ENABLE "NXP_SPI_INTF_RST_ENABLE"
+#define NAME_NXP_MAX_RNACK_RETRY     "NXP_MAX_RNACK_RETRY"
 #endif
 #endif

@@ -210,6 +210,8 @@ typedef struct phNxpEseProto7816
   unsigned long int wtx_counter; /*!< WTX count tracker */
   uint8_t timeoutCounter; /*!< Keeps track of number of timeout happened. Stack exits after it reaches max. count  */
   phNxpEseProto7816_FrameTypes_t lastSentNonErrorframeType; /*!< Copy of the last sent non-error frame type: R-ACK, S-frame, I-frame */
+  unsigned long int rnack_retry_limit;
+  unsigned long int rnack_retry_counter;
 }phNxpEseProto7816_t;
 
 /*!
@@ -222,6 +224,7 @@ typedef struct phNxpEseProto7816InitParam
 {
     unsigned long int wtx_counter_limit; /*!< WTX count limit */
     bool_t interfaceReset;               /*!< INTF reset required or not>*/
+    unsigned long int rnack_retry_limit;
 }phNxpEseProto7816InitParam_t;
 
 /*!
@@ -315,6 +318,10 @@ phNxpEseProto7816_t phNxpEseProto7816_3_Var;
  * \brief 7816-3 to represent magic number one
  */
 #define PH_PROTO_7816_VALUE_ONE 0x01
+/*!
+ * \brief 7816-3 for max retry for CRC error
+ */
+#define MAX_RNACK_RETRY_LIMIT 0x02
 /*
  * APIs exposed from the 7816-3 protocol layer
  */

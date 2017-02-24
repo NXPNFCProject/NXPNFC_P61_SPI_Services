@@ -816,16 +816,29 @@ static bool_t phNxpEseProto7816_ProcessResponse(void)
         checkLrcPass = phNxpEseProto7816_CheckLRC(data_len, p_data);
         if(checkLrcPass == TRUE)
         {
+            /* Resetting the RNACK retry counter */
+            phNxpEseProto7816_3_Var.rnack_retry_counter = PH_PROTO_7816_VALUE_ZERO;
             phNxpEseProto7816_DecodeFrame(p_data, data_len);
         }
         else
         {
             NXPLOG_ESELIB_E("%s LRC Check failed", __FUNCTION__);
-            phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdFrameType = INVALID ;
-            phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.FrameType= RFRAME;
-            phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.RframeInfo.errCode = PARITY_ERROR ;
-            phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.RframeInfo.seqNo =(!phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdIframeInfo.seqNo) << 4;
-            phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState = SEND_R_NACK ;
+            if(phNxpEseProto7816_3_Var.rnack_retry_counter < phNxpEseProto7816_3_Var.rnack_retry_limit)
+            {
+                phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdFrameType = INVALID ;
+                phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.FrameType= RFRAME;
+                phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.RframeInfo.errCode = PARITY_ERROR ;
+                phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.RframeInfo.seqNo =(!phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdIframeInfo.seqNo) << 4;
+                phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState = SEND_R_NACK ;
+                phNxpEseProto7816_3_Var.rnack_retry_counter++;
+            }
+            else
+            {
+                phNxpEseProto7816_3_Var.rnack_retry_counter = PH_PROTO_7816_VALUE_ZERO;
+                /* Re-transmission failed completely, Going to exit */
+                phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState = IDLE_STATE;
+                phNxpEseProto7816_3_Var.timeoutCounter = PH_PROTO_7816_VALUE_ZERO;
+            }
         }
     }
     else
@@ -835,11 +848,22 @@ static bool_t phNxpEseProto7816_ProcessResponse(void)
                 ((WTX_RSP == phNxpEseProto7816_3_Var.phNxpEseLastTx_Cntx.SframeInfo.sFrameType) ||
                  (RESYNCH_RSP == phNxpEseProto7816_3_Var.phNxpEseLastTx_Cntx.SframeInfo.sFrameType)))
         {
-            phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdFrameType = INVALID ;
-            phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.FrameType= RFRAME;
-            phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.RframeInfo.errCode = OTHER_ERROR ;
-            phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.RframeInfo.seqNo =(!phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdIframeInfo.seqNo) << 4;
-            phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState = SEND_R_NACK ;
+            if(phNxpEseProto7816_3_Var.rnack_retry_counter < phNxpEseProto7816_3_Var.rnack_retry_limit)
+            {
+                phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdFrameType = INVALID ;
+                phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.FrameType= RFRAME;
+                phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.RframeInfo.errCode = OTHER_ERROR ;
+                phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.RframeInfo.seqNo =(!phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdIframeInfo.seqNo) << 4;
+                phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState = SEND_R_NACK ;
+                phNxpEseProto7816_3_Var.rnack_retry_counter++;
+            }
+            else
+            {
+                phNxpEseProto7816_3_Var.rnack_retry_counter = PH_PROTO_7816_VALUE_ZERO;
+                /* Re-transmission failed completely, Going to exit */
+                phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState = IDLE_STATE;
+                phNxpEseProto7816_3_Var.timeoutCounter = PH_PROTO_7816_VALUE_ZERO;
+            }
         }
         else
         {
@@ -1016,9 +1040,12 @@ static bool_t phNxpEseProto7816_RSync(void)
 static bool_t phNxpEseProto7816_ResetProtoParams(void)
 {
     unsigned long int tmpWTXCountlimit = PH_PROTO_7816_VALUE_ZERO;
+    unsigned long int tmpRNACKCountlimit = PH_PROTO_7816_VALUE_ZERO;
     tmpWTXCountlimit = phNxpEseProto7816_3_Var.wtx_counter_limit;
+    tmpRNACKCountlimit = phNxpEseProto7816_3_Var.rnack_retry_limit;
     phNxpEse_memset(&phNxpEseProto7816_3_Var, PH_PROTO_7816_VALUE_ZERO, sizeof(phNxpEseProto7816_t));
     phNxpEseProto7816_3_Var.wtx_counter_limit = tmpWTXCountlimit;
+    phNxpEseProto7816_3_Var.rnack_retry_limit = tmpRNACKCountlimit;
     phNxpEseProto7816_3_Var.phNxpEseProto7816_CurrentState = PH_NXP_ESE_PROTO_7816_IDLE;
     phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState = IDLE_STATE;
     phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdFrameType = INVALID;
@@ -1039,6 +1066,7 @@ static bool_t phNxpEseProto7816_ResetProtoParams(void)
     phNxpEseProto7816_3_Var.wtx_counter = PH_PROTO_7816_VALUE_ZERO;
     /* This update is helpful in-case a R-NACK is transmitted from the MW */
     phNxpEseProto7816_3_Var.lastSentNonErrorframeType = UNKNOWN;
+    phNxpEseProto7816_3_Var.rnack_retry_counter = PH_PROTO_7816_VALUE_ZERO;
     return TRUE;
 }
 
@@ -1076,6 +1104,7 @@ bool_t phNxpEseProto7816_Open(phNxpEseProto7816InitParam_t initParam)
     NXPLOG_ESELIB_D("%s: First open completed, Congratulations", __FUNCTION__);
     /* Update WTX max. limit */
     phNxpEseProto7816_3_Var.wtx_counter_limit = initParam.wtx_counter_limit;
+    phNxpEseProto7816_3_Var.rnack_retry_limit = initParam.rnack_retry_limit;
     if(initParam.interfaceReset) /* Do interface reset */
     {
         status = phNxpEseProto7816_IntfReset();

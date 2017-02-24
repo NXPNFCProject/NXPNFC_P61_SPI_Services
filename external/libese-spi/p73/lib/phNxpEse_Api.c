@@ -69,6 +69,14 @@ ESESTATUS phNxpEse_init(phNxpEse_initParams initParams)
     {
         protoInitParam.wtx_counter_limit = PH_PROTO_WTX_DEFAULT_COUNT;
     }
+    if(GetNxpNumValue (NAME_NXP_MAX_RNACK_RETRY, &num, sizeof(num)))
+    {
+        protoInitParam.rnack_retry_limit = num;
+    }
+    else
+    {
+        protoInitParam.rnack_retry_limit = MAX_RNACK_RETRY_LIMIT;
+    }
 #else
     protoInitParam.wtx_counter_limit = PH_PROTO_WTX_DEFAULT_COUNT;
 #endif

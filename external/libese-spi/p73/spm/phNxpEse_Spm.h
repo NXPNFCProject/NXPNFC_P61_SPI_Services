@@ -217,7 +217,7 @@ SPMSTATUS phNxpEse_SPM_SetPwrScheme(long arg);
 + *        successfully holds power control.
 + *        SPMSTATUS_FAILED - if reset request is failed \n
 + */
-SPMSTATUS phNxpEseP_SPM_DisablePwrControl(long arg);
+SPMSTATUS phNxpEse_SPM_DisablePwrControl(long arg);
 #if(NXP_ESE_JCOP_DWNLD_PROTECTION == TRUE)
 /******************************************************************************
  * Function         phNxpEse_SPM_SetJcopDwnldState

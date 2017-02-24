@@ -40,13 +40,13 @@ LOCAL_C_INCLUDES += \
     libcore/include \
     frameworks/native/include \
     external/p61-jcop-kit/inc \
-    external/p61-jcop-kit/include
+    external/p61-jcop-kit/include \
+    external/libese-spi/common/include
 
 ifeq ($(NXP_ESE_CHIP_TYPE),$(P73))
 LOCAL_C_INCLUDES += \
     external/libese-spi/p73/inc \
     external/libese-spi/p73/common \
-    external/libese-spi/p73/include\
     external/libese-spi/p73/pal\
     external/libese-spi/p73/utils
 else ifeq ($(NXP_ESE_CHIP_TYPE),$(P61))
