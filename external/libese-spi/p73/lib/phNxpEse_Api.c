@@ -22,13 +22,6 @@
 #include <NXP_ESE_FEATURES.h>
 #include <phNxpEsePal_spi.h>
 
-/* Macro to enable SPM Module */
-#define SPM_INTEGRATED
-//#undef SPM_INTEGRATED
-#ifdef SPM_INTEGRATED
-#include "../spm/phNxpEse_Spm.h"
-#endif
-
 #define RECIEVE_PACKET_SOF      0xA5
 static int phNxpEse_readPacket(void *pDevHandle, uint8_t * pBuffer, int nNbBytesToRead);
 static ESESTATUS phNxpEse_checkJcopDwnldState(void);

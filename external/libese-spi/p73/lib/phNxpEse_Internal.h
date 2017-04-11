@@ -19,6 +19,12 @@
 #include <phNxpEse_Api.h>
 #include <phNxpLog.h>
 
+/* Macro to enable SPM Module */
+#define SPM_INTEGRATED
+//#undef SPM_INTEGRATED
+#ifdef SPM_INTEGRATED
+#include "../spm/phNxpEse_Spm.h"
+#endif
 /********************* Definitions and structures *****************************/
 
 typedef enum
@@ -45,6 +51,15 @@ typedef enum
 #if(NXP_NFCC_SPI_FW_DOWNLOAD_SYNC == TRUE)
 #define ESE_FW_DWNLD_RETRY_CNT        10 /* Maximum retry count for FW Dwonload*/
 #endif
+
+/* JCOP download states */
+typedef enum jcop_dwnld_state{
+    JCP_DWNLD_IDLE = SPM_STATE_JCOP_DWNLD,  /* jcop dwnld is not ongoing*/
+    JCP_DWNLD_INIT,                         /* jcop dwonload init state*/
+    JCP_DWNLD_START,                        /* download started */
+    JCP_SPI_DWNLD_COMPLETE,                 /* jcop download complete in spi interface*/
+    JCP_DWP_DWNLD_COMPLETE,                 /* jcop download complete */
+} phNxpEse_JcopDwnldState;
 
 /* SPI Control structure */
 typedef struct phNxpEse_Context
