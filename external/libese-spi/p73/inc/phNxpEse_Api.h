@@ -78,7 +78,7 @@ typedef struct phNxpEse_initParams
 /*!
  * \brief SEAccess kit MW Minor version
  */
-#define ESELIB_MW_VERSION_MIN                   (0x6)
+#define ESELIB_MW_VERSION_MIN                   (0x7)
 
 /******************************************************************************
  * \ingroup spi_libese
