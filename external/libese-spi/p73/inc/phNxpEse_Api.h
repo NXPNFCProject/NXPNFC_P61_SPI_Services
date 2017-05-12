@@ -65,12 +65,12 @@ typedef struct phNxpEse_initParams
 /*!
  * \brief SEAccess kit MW Major version
  */
-#define ESELIB_MW_VERSION_MAJ                   (0x3)
+#define ESELIB_MW_VERSION_MAJ                   (0x03)
 
 /*!
  * \brief SEAccess kit MW Minor version
  */
-#define ESELIB_MW_VERSION_MIN                   (0x8)
+#define ESELIB_MW_VERSION_MIN                   (0x9)
 
 /******************************************************************************
  * \ingroup spi_libese
