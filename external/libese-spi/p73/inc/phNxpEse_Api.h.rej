@@ -1,0 +1,23 @@
+--- external/libese-spi/p73/inc/phNxpEse_Api.h
++++ external/libese-spi/p73/inc/phNxpEse_Api.h
+@@ -60,17 +60,17 @@
+ /*!
+  * \brief SEAccess kit MW Android version
+  */
+-#define NXP_ANDROID_VER                         (8U)
++#define NXP_ANDROID_VER                         (7U)
+ 
+ /*!
+  * \brief SEAccess kit MW Major version
+  */
+-#define ESELIB_MW_VERSION_MAJ                   (0x0)
++#define ESELIB_MW_VERSION_MAJ                   (0x03)
+ 
+ /*!
+  * \brief SEAccess kit MW Minor version
+  */
+-#define ESELIB_MW_VERSION_MIN                   (0x4)
++#define ESELIB_MW_VERSION_MIN                   (0x9)
+ 
+ /******************************************************************************
+  * \ingroup spi_libese

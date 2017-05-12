@@ -1,0 +1,37 @@
+From 4f5ead53fbab28c5f40d9b1dbc13e97bbcd9e8cb Mon Sep 17 00:00:00 2001
+From: nxf24591 <nanjesh.s_1@nxp.com>
+Date: Fri, 21 Apr 2017 12:04:48 +0530
+Subject: [PATCH 3/4] SEAccesskit version updated to 7.3.9
+
+---
+ external/libese-spi/p73/inc/phNxpEse_Api.h | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/external/libese-spi/p73/inc/phNxpEse_Api.h b/external/libese-spi/p73/inc/phNxpEse_Api.h
+index 9c44586..406be32 100644
+--- a/external/libese-spi/p73/inc/phNxpEse_Api.h
++++ b/external/libese-spi/p73/inc/phNxpEse_Api.h
+@@ -60,17 +60,17 @@ typedef struct phNxpEse_initParams
+ /*!
+  * \brief SEAccess kit MW Android version
+  */
+-#define NXP_ANDROID_VER                         (8U)
++#define NXP_ANDROID_VER                         (7U)
+ 
+ /*!
+  * \brief SEAccess kit MW Major version
+  */
+-#define ESELIB_MW_VERSION_MAJ                   (0x0)
++#define ESELIB_MW_VERSION_MAJ                   (0x03)
+ 
+ /*!
+  * \brief SEAccess kit MW Minor version
+  */
+-#define ESELIB_MW_VERSION_MIN                   (0x4)
++#define ESELIB_MW_VERSION_MIN                   (0x9)
+ 
+ /******************************************************************************
+  * \ingroup spi_libese
+-- 
+1.9.1
+

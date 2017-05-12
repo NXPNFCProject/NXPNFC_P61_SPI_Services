@@ -125,6 +125,7 @@ ESESTATUS phNxpEse_open(phNxpEse_initParams initParams)
     spm_state_t current_spm_state = SPM_STATE_INVALID;
 #endif
 
+    NXPLOG_ESELIB_E("phNxpEse_open Enter");
     /*When spi channel is already opened return status as FAILED*/
     if(nxpese_ctxt.EseLibStatus != ESE_STATUS_CLOSE)
     {
@@ -340,6 +341,7 @@ ESESTATUS phNxpEse_openPrioSession(phNxpEse_initParams initParams)
     ESESTATUS wConfigStatus = ESESTATUS_SUCCESS;
     unsigned long int num, tpm_enable = 0;
 
+    NXPLOG_ESELIB_E("phNxpEse_openPrioSession Enter");
 #ifdef SPM_INTEGRATED
     SPMSTATUS wSpmStatus = SPMSTATUS_SUCCESS;
     spm_state_t current_spm_state = SPM_STATE_INVALID;
@@ -549,6 +551,7 @@ static ESESTATUS phNxpEse_setJcopDwnldState(phNxpEse_JcopDwnldState state)
 {
     SPMSTATUS wSpmStatus = SPMSTATUS_SUCCESS;
     ESESTATUS wConfigStatus = ESESTATUS_FAILED;
+    NXPLOG_ESELIB_E("phNxpEse_setJcopDwnldState Enter");
 
     wSpmStatus = phNxpEse_SPM_SetJcopDwnldState(state);
     if(wSpmStatus == SPMSTATUS_SUCCESS)
@@ -603,7 +606,7 @@ static ESESTATUS phNxpEse_checkJcopDwnldState(void)
                     status = ESESTATUS_FAILED;
                     break;
                 }
-                phNxpEse_Sleep(100000);    /*sleep for 100 ms checking for jcop dwnld status*/
+                phNxpEse_Sleep(200000);    /*sleep for 200 ms checking for jcop dwnld status*/
                 ese_dwnld_retry++;
             }
         }

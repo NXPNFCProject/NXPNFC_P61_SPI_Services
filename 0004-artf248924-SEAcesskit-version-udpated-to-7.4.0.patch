@@ -1,0 +1,31 @@
+From 2c71dafdedb184cfb4125196f7108d834e88f1f2 Mon Sep 17 00:00:00 2001
+From: nxf24591 <nanjesh.s_1@nxp.com>
+Date: Thu, 11 May 2017 14:34:42 +0530
+Subject: [PATCH 4/4] [artf248924] SEAcesskit version udpated to 7.4.0
+
+---
+ external/libese-spi/p73/inc/phNxpEse_Api.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/external/libese-spi/p73/inc/phNxpEse_Api.h b/external/libese-spi/p73/inc/phNxpEse_Api.h
+index 406be32..b9141a1 100644
+--- a/external/libese-spi/p73/inc/phNxpEse_Api.h
++++ b/external/libese-spi/p73/inc/phNxpEse_Api.h
+@@ -65,12 +65,12 @@ typedef struct phNxpEse_initParams
+ /*!
+  * \brief SEAccess kit MW Major version
+  */
+-#define ESELIB_MW_VERSION_MAJ                   (0x03)
++#define ESELIB_MW_VERSION_MAJ                   (0x04)
+ 
+ /*!
+  * \brief SEAccess kit MW Minor version
+  */
+-#define ESELIB_MW_VERSION_MIN                   (0x9)
++#define ESELIB_MW_VERSION_MIN                   (0x0)
+ 
+ /******************************************************************************
+  * \ingroup spi_libese
+-- 
+1.9.1
+
