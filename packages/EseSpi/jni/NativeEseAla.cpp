@@ -72,8 +72,8 @@ int eSEManager_GetAppletsList(JNIEnv* e, jobject o, jobjectArray list)
     char *name[10];
     UINT8 num =0, xx=0;
     UINT8 list_len = e->GetArrayLength(list);
-    ALOGD ("%s: enter", __FUNCTION__);
-    ALOGD("%s: list_len=0x%x", __FUNCTION__, list_len);
+    ALOGV ("%s: enter", __FUNCTION__);
+    ALOGV("%s: list_len=0x%x", __FUNCTION__, list_len);
     ALA_GetlistofApplets(name, &num);
 
     if((num != 0) &&
@@ -95,7 +95,7 @@ int eSEManager_GetAppletsList(JNIEnv* e, jobject o, jobjectArray list)
     {
         ALOGE("%s: No applets found",__FUNCTION__);
     }
-    ALOGD ("%s: exit; num_applets =0x%X", __FUNCTION__,xx);
+    ALOGV ("%s: exit; num_applets =0x%X", __FUNCTION__,xx);
     return xx;
 }
 
@@ -118,7 +118,7 @@ int eSEManager_doAppletLoadApplet(JNIEnv* e, jobject o, jstring name, jbyteArray
     (void)e;
     (void)o;
     (void)name;
-    ALOGD ("%s: enter", __FUNCTION__);
+    ALOGV ("%s: enter", __FUNCTION__);
     NFCSTATUS wStatus, status;
     IChannel_t Dwp;
     bool stat = false;
@@ -148,7 +148,7 @@ int eSEManager_doAppletLoadApplet(JNIEnv* e, jobject o, jstring name, jbyteArray
     {
         ALOGE("%s: Spi channel Already in use..", __FUNCTION__);
     }
-    ALOGD ("%s: exit; status =0x%X", __FUNCTION__,wStatus);
+    ALOGV ("%s: exit; status =0x%X", __FUNCTION__,wStatus);
     return wStatus;
 
 }
@@ -176,7 +176,7 @@ jbyteArray eSEManager_lsExecuteScript(JNIEnv* e, jobject o, jstring name, jstrin
     const UINT8 lsExecuteResponseSize = 4;
     uint8_t resSW [4]={0x4E, 0x02, 0x69, 0x87};
     jbyteArray result = e->NewByteArray(0);
-    ALOGD ("%s: enter", __FUNCTION__);
+    ALOGV ("%s: enter", __FUNCTION__);
     ESESTATUS wStatus, status;
     IChannel_t Dwp;
     bool stat = false;
@@ -185,7 +185,7 @@ jbyteArray eSEManager_lsExecuteScript(JNIEnv* e, jobject o, jstring name, jstrin
     gJcopDwnldinProgress = true;
     if(Spichannel_init(&Dwp, LDR_SRVCE)!= true)
     {
-        ALOGD ("%s: exit; Client already in-use status =0x%X", __FUNCTION__,wStatus);
+        ALOGV ("%s: exit; Client already in-use status =0x%X", __FUNCTION__,wStatus);
         return result;
     }
     wStatus = ALA_Init(&Dwp);
@@ -219,7 +219,7 @@ jbyteArray eSEManager_lsExecuteScript(JNIEnv* e, jobject o, jstring name, jstrin
         e->ReleaseStringUTFChars(name, choice);
 
 
-    ALOGD ("%s: exit; status =0x%X", __FUNCTION__,wStatus);
+    ALOGV ("%s: exit; status =0x%X", __FUNCTION__,wStatus);
     return result;
 }
 #endif
@@ -238,7 +238,7 @@ jbyteArray eSEManager_lsExecuteScript(JNIEnv* e, jobject o, jstring name, jstrin
 
 jbyteArray eSEManager_GetCertificateKey(JNIEnv* e, jobject)
 {
-    ALOGD ("%s: enter", __FUNCTION__);
+    ALOGV ("%s: enter", __FUNCTION__);
     NFCSTATUS wStatus = STATUS_FAILED;
     IChannel_t Dwp;
     bool stat = false;
@@ -249,7 +249,7 @@ jbyteArray eSEManager_GetCertificateKey(JNIEnv* e, jobject)
 
     if(Spichannel_init(&Dwp, LDR_SRVCE) != true)
     {
-        ALOGD("%s: exit: recv len=%ld", __FUNCTION__, recvBufferActualSize);
+        ALOGV("%s: exit: recv len=%ld", __FUNCTION__, recvBufferActualSize);
         return result;
     }
     wStatus = ALA_Init(&Dwp);
@@ -273,7 +273,7 @@ jbyteArray eSEManager_GetCertificateKey(JNIEnv* e, jobject)
     stat = ALA_DeInit();
     /*startRfDiscovery (true);*/
 
-    ALOGD("%s: exit: recv len=%ld", __FUNCTION__, recvBufferActualSize);
+    ALOGV("%s: exit: recv len=%ld", __FUNCTION__, recvBufferActualSize);
     return result;
 }
 #else
@@ -292,7 +292,7 @@ jbyteArray eSEManager_GetCertificateKey(JNIEnv* e, jobject)
 jbyteArray eSEManager_lsGetVersion(JNIEnv* e, jobject)
 {
 
-    ALOGD ("%s: enter", __FUNCTION__);
+    ALOGV ("%s: enter", __FUNCTION__);
     ESESTATUS wStatus = STATUS_FAILED;
     IChannel_t Dwp;
     bool stat = false;
@@ -302,7 +302,7 @@ jbyteArray eSEManager_lsGetVersion(JNIEnv* e, jobject)
 
     if(Spichannel_init(&Dwp, LDR_SRVCE) != true)
     {
-        ALOGD("%s: exit: recv len=%ld", __FUNCTION__, recvBufferMaxSize);
+        ALOGV("%s: exit: recv len=%ld", __FUNCTION__, recvBufferMaxSize);
         return result;
     }
     wStatus = ALA_Init(&Dwp);
@@ -328,7 +328,7 @@ jbyteArray eSEManager_lsGetVersion(JNIEnv* e, jobject)
 
     stat = ALA_DeInit();
 
-    ALOGD("%s: exit: recv len=%ld", __FUNCTION__, recvBufferMaxSize);
+    ALOGV("%s: exit: recv len=%ld", __FUNCTION__, recvBufferMaxSize);
     return result;
 
 }
@@ -347,7 +347,7 @@ jbyteArray eSEManager_lsGetVersion(JNIEnv* e, jobject)
 jbyteArray eSEManager_lsGetAppletStatus(JNIEnv* e, jobject)
 {
 
-    ALOGD ("%s: enter", __FUNCTION__);
+    ALOGV ("%s: enter", __FUNCTION__);
     ESESTATUS wStatus = STATUS_FAILED;
     bool stat = false;
     const INT32 recvBufferMaxSize = 2;
@@ -357,7 +357,7 @@ jbyteArray eSEManager_lsGetAppletStatus(JNIEnv* e, jobject)
 
     if(Spichannel_init(&Dwp, LDR_SRVCE) != true)
     {
-        ALOGD("%s: exit: recv len=%ld", __FUNCTION__, recvBufferMaxSize);
+        ALOGV("%s: exit: recv len=%ld", __FUNCTION__, recvBufferMaxSize);
         return result;
     }
     wStatus = ALA_Init(&Dwp);
@@ -373,7 +373,7 @@ jbyteArray eSEManager_lsGetAppletStatus(JNIEnv* e, jobject)
         gJcopDwnldinProgress = false;
     }
 
-    ALOGD ("%s: lsGetAppletStatus values %x %x", __FUNCTION__, recvBuffer[0], recvBuffer[1]);
+    ALOGV ("%s: lsGetAppletStatus values %x %x", __FUNCTION__, recvBuffer[0], recvBuffer[1]);
     //copy results back to java
     result = e->NewByteArray(recvBufferMaxSize);
     if (result != NULL)
@@ -382,7 +382,7 @@ jbyteArray eSEManager_lsGetAppletStatus(JNIEnv* e, jobject)
     }
     stat = ALA_DeInit();
 
-    ALOGD("%s: exit: recv len=%ld", __FUNCTION__, recvBufferMaxSize);
+    ALOGV("%s: exit: recv len=%ld", __FUNCTION__, recvBufferMaxSize);
 
     return result;
 }
@@ -401,21 +401,21 @@ jbyteArray eSEManager_lsGetAppletStatus(JNIEnv* e, jobject)
 jbyteArray eSEManager_lsGetStatus(JNIEnv* e, jobject)
 {
 
-    ALOGD ("%s: enter", __FUNCTION__);
+    ALOGV ("%s: enter", __FUNCTION__);
     ESESTATUS wStatus = STATUS_FAILED;
     const INT32 recvBufferMaxSize = 2;
     UINT8 recvBuffer [recvBufferMaxSize] = {0x63,0x40};
 
     wStatus = ALA_lsGetStatus(recvBuffer);
 
-    ALOGD ("%s: lsGetStatus values %x %x", __FUNCTION__, recvBuffer[0], recvBuffer[1]);
+    ALOGV ("%s: lsGetStatus values %x %x", __FUNCTION__, recvBuffer[0], recvBuffer[1]);
 
     jbyteArray result = e->NewByteArray(recvBufferMaxSize);
     if (result != NULL)
     {
         e->SetByteArrayRegion(result, 0, recvBufferMaxSize, (jbyte *) recvBuffer);
     }
-    ALOGD("%s: exit: recv len=%ld", __FUNCTION__, recvBufferMaxSize);
+    ALOGV("%s: exit: recv len=%ld", __FUNCTION__, recvBufferMaxSize);
     return result;
 }
 
@@ -436,10 +436,10 @@ jint eSEManager_getLSConfigVer(JNIEnv* e, jobject o)
 {
     unsigned long num = 0;
     jint ls_version = LS_DEFAULT_VERSION;
-    ALOGD ("%s: enter", __FUNCTION__);
+    ALOGV ("%s: enter", __FUNCTION__);
     if(GetNxpNumValue (NAME_NXP_LOADER_SERICE_VERSION, (void*)&num, sizeof(num))==false)
     {
-        ALOGD ("LOADER_SERVICE_VERSION not found");
+        ALOGV ("LOADER_SERVICE_VERSION not found");
         num = 0;
     }
     /*If LS version exists in config file*/
@@ -447,7 +447,7 @@ jint eSEManager_getLSConfigVer(JNIEnv* e, jobject o)
     {
         ls_version = (jint)num;
     }
-    ALOGD ("%s: exit", __FUNCTION__);
+    ALOGV ("%s: exit", __FUNCTION__);
     return ls_version;
 }
 

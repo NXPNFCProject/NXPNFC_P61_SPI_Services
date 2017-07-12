@@ -40,7 +40,6 @@
 #include "CondVar.h"
 #include "SpiJniUtil.h"
 
-#include <cutils/log.h>
 #include <errno.h>
 
 

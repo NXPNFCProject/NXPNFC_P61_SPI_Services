@@ -40,7 +40,6 @@
 #include "Mutex.h"
 #include "SpiJniUtil.h"
 
-#include <cutils/log.h>
 #include <errno.h>
 
 /*******************************************************************************

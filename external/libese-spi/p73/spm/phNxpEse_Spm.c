@@ -357,7 +357,7 @@ SPMSTATUS phNxpEse_SPM_SetPwrScheme(long arg)
  * Returns          On Success SPMSTATUS_SUCCESS else proper error code
  *
  ******************************************************************************/
-SPMSTATUS phNxpEse_SPM_DisablePwrControl(long arg)
+SPMSTATUS phNxpEse_SPM_DisablePwrControl(unsigned long arg)
 {
     int32_t ret = -1;
     SPMSTATUS status = SPMSTATUS_SUCCESS;

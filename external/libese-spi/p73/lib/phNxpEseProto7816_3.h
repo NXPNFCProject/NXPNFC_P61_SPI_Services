@@ -191,6 +191,19 @@ typedef struct phNxpEseRx_Cntx
 }phNxpEseRx_Cntx_t;
 
 /*!
+ * \brief Proprietery: Secure timer value updates
+ *
+ * This structure holds the secure timer value
+ *
+ */
+typedef struct phNxpEseProto7816SecureTimer
+{
+  unsigned int secureTimer1;
+  unsigned int secureTimer2;
+  unsigned int secureTimer3;
+}phNxpEseProto7816SecureTimer_t;
+
+/*!
  * \brief 7816-3 protocol stack context structure
  *
  * This structure holds the complete information of the
@@ -212,6 +225,7 @@ typedef struct phNxpEseProto7816
   phNxpEseProto7816_FrameTypes_t lastSentNonErrorframeType; /*!< Copy of the last sent non-error frame type: R-ACK, S-frame, I-frame */
   unsigned long int rnack_retry_limit;
   unsigned long int rnack_retry_counter;
+  phNxpEseProto7816SecureTimer_t secureTimerParams;
 }phNxpEseProto7816_t;
 
 /*!
@@ -225,6 +239,7 @@ typedef struct phNxpEseProto7816InitParam
     unsigned long int wtx_counter_limit; /*!< WTX count limit */
     bool_t interfaceReset;               /*!< INTF reset required or not>*/
     unsigned long int rnack_retry_limit;
+    phNxpEseProto7816SecureTimer_t *pSecureTimerParams; /*!< Secure timer value updated here >*/
 }phNxpEseProto7816InitParam_t;
 
 /*!
@@ -274,6 +289,23 @@ phNxpEseProto7816_t phNxpEseProto7816_3_Var;
  * \brief 7816-3 PCB byte offset
  */
 #define PH_PROPTO_7816_PCB_OFFSET 0x01
+/*!
+ * \brief 7816-3 frame length offset
+ */
+#define PH_PROPTO_7816_FRAME_LENGTH_OFFSET 0x02
+/*!
+ * \brief 7816-3 S-frame timer 1
+ */
+#define PH_PROPTO_7816_SFRAME_TIMER1 0xF1
+/*!
+ * \brief 7816-3 S-frame timer 2
+ */
+#define PH_PROPTO_7816_SFRAME_TIMER2 0xF2
+/*!
+ * \brief 7816-3 S-frame timer 3
+ */
+#define PH_PROPTO_7816_SFRAME_TIMER3 0xF3
+
 /*!
  * \brief 7816-3 S-block request command mask
  */
@@ -334,7 +366,7 @@ phNxpEseProto7816_t phNxpEseProto7816_3_Var;
  * \retval On success return TRUE or else FALSE.
  *
 */
-bool_t phNxpEseProto7816_IntfReset(void);
+bool_t phNxpEseProto7816_IntfReset(phNxpEseProto7816SecureTimer_t *secureTimerParams);
 
 /**
  * \ingroup ISO7816-3_protocol_lib
@@ -344,7 +376,7 @@ bool_t phNxpEseProto7816_IntfReset(void);
  * \retval On success return TRUE or else FALSE.
  *
 */
-bool_t phNxpEseProto7816_Close(void);
+bool_t phNxpEseProto7816_Close(phNxpEseProto7816SecureTimer_t *secureTimerParams);
 
 /**
  * \ingroup ISO7816-3_protocol_lib

@@ -50,6 +50,14 @@
     #define NXP_ESE_JCOP_DWNLD_PROTECTION         TRUE
     #define NXP_NFCC_SPI_FW_DOWNLOAD_SYNC         TRUE
     #define NXP_SECURE_TIMER_SESSION              TRUE
+#elif(NFC_NXP_CHIP_TYPE == PN81A)
+    #define NXP_POWER_SCHEME_SUPPORT              TRUE
+    #define NXP_ESE_P73_ISO_RST                   TRUE
+    #define NXP_ESE_END_OF_SESSION                TRUE
+    #define NXP_ESE_WTX_RES_DELAY                 TRUE
+    #define NXP_ESE_JCOP_DWNLD_PROTECTION         TRUE
+    #define NXP_NFCC_SPI_FW_DOWNLOAD_SYNC         TRUE
+    #define NXP_SECURE_TIMER_SESSION              TRUE
 #endif
 
 #endif                          /* end of #ifndef NXP_ESE_FEATURES_H */

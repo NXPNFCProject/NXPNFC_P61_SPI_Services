@@ -488,6 +488,75 @@ static bool_t phNxpEseProto7816_RecoverySteps(void)
 }
 
 /******************************************************************************
+ * Function         phNxpEseProto7816_DecodeSecureTimer
+ *
+ * Description      This internal function is to decode the secure timer.
+ *                  value from the payload
+ * Returns          void
+ *
+ ******************************************************************************/
+static void phNxpEseProto7816_DecodeSecureTimer(uint8_t *frameOffset, unsigned int *secureTimer, uint8_t *p_data)
+{
+    uint8_t byteCounter = 0;
+    uint8_t dataLength = p_data[++(*frameOffset)]; /* To get the L of TLV */
+    if(dataLength > 0)
+    {
+        /* V of TLV: Retrieve each byte(4 byte) and push it to get the secure timer value (unsigned long) */
+        for(byteCounter = 1; byteCounter <= dataLength; byteCounter++)
+        {
+            (*frameOffset)++;
+            *secureTimer = (*secureTimer) << 8;
+            *secureTimer |= p_data[(*frameOffset)];
+        }
+    }
+    else
+    {
+        (*frameOffset)++;  /* Goto the end of current marker if length is zero */
+    }
+    return;
+}
+
+/******************************************************************************
+ * Function         phNxpEseProto7816_DecodeSFrameData
+ *
+ * Description      This internal function is to decode S-frame payload.
+ * Returns          void
+ *
+ ******************************************************************************/
+static void phNxpEseProto7816_DecodeSFrameData(uint8_t *p_data)
+{
+    uint8_t maxSframeLen = 0, dataType = 0, frameOffset = 0;
+    frameOffset = PH_PROPTO_7816_FRAME_LENGTH_OFFSET;
+    maxSframeLen = p_data[frameOffset] + frameOffset; /* to be in sync with offset which starts from index 0 */
+    while(maxSframeLen > frameOffset)
+    {
+        frameOffset += 1; /* To get the Type (TLV) */
+        dataType = p_data[frameOffset];
+        NXPLOG_ESELIB_D("%s frameoffset=%d value=0x%x\n", __FUNCTION__, frameOffset, p_data[frameOffset]);
+        switch(dataType) /* Type (TLV) */
+        {
+            case PH_PROPTO_7816_SFRAME_TIMER1:
+            phNxpEseProto7816_DecodeSecureTimer(&frameOffset, &phNxpEseProto7816_3_Var.secureTimerParams.secureTimer1, p_data);
+            break;
+            case PH_PROPTO_7816_SFRAME_TIMER2:
+            phNxpEseProto7816_DecodeSecureTimer(&frameOffset, &phNxpEseProto7816_3_Var.secureTimerParams.secureTimer2, p_data);
+            break;
+            case PH_PROPTO_7816_SFRAME_TIMER3:
+            phNxpEseProto7816_DecodeSecureTimer(&frameOffset, &phNxpEseProto7816_3_Var.secureTimerParams.secureTimer3, p_data);
+            break;
+            default:
+            frameOffset += p_data[frameOffset + 1]; /* Goto the end of current marker */
+            break;
+        }
+    }
+    NXPLOG_ESELIB_D("secure timer t1 = 0x%x t2 = 0x%x t3 = 0x%x",
+        phNxpEseProto7816_3_Var.secureTimerParams.secureTimer1,
+        phNxpEseProto7816_3_Var.secureTimerParams.secureTimer2,
+        phNxpEseProto7816_3_Var.secureTimerParams.secureTimer3);
+    return;
+}
+
+/******************************************************************************
  * Function         phNxpEseProto7816_DecodeFrame
  *
  * Description      This internal function is used to
@@ -766,6 +835,8 @@ static bool_t phNxpEseProto7816_DecodeFrame(uint8_t *p_data, uint32_t data_len)
             case INTF_RESET_RSP:
                 phNxpEseProto7816_ResetProtoParams();
                 phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdSframeInfo.sFrameType= INTF_RESET_RSP;
+                if(p_data[PH_PROPTO_7816_FRAME_LENGTH_OFFSET] > 0)
+                    phNxpEseProto7816_DecodeSFrameData(p_data);
                 phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.FrameType= UNKNOWN;
                 phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState = IDLE_STATE;
                 break;
@@ -774,6 +845,8 @@ static bool_t phNxpEseProto7816_DecodeFrame(uint8_t *p_data, uint32_t data_len)
                 break;
             case PROP_END_APDU_RSP:
                 phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdSframeInfo.sFrameType= PROP_END_APDU_RSP;
+                if(p_data[PH_PROPTO_7816_FRAME_LENGTH_OFFSET] > 0)
+                    phNxpEseProto7816_DecodeSFrameData(p_data);
                 phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.FrameType= UNKNOWN;
                 phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState = IDLE_STATE;
                 break;
@@ -1107,7 +1180,11 @@ bool_t phNxpEseProto7816_Open(phNxpEseProto7816InitParam_t initParam)
     phNxpEseProto7816_3_Var.rnack_retry_limit = initParam.rnack_retry_limit;
     if(initParam.interfaceReset) /* Do interface reset */
     {
-        status = phNxpEseProto7816_IntfReset();
+        status = phNxpEseProto7816_IntfReset(initParam.pSecureTimerParams);
+        if(TRUE == status)
+        {
+            phNxpEse_memcpy(initParam.pSecureTimerParams, &phNxpEseProto7816_3_Var.secureTimerParams, sizeof(phNxpEseProto7816SecureTimer_t));
+        }
     }
     else /* Do R-Sync */
     {
@@ -1124,7 +1201,7 @@ bool_t phNxpEseProto7816_Open(phNxpEseProto7816InitParam_t initParam)
  * Returns          On success return TRUE or else FALSE.
  *
  ******************************************************************************/
-bool_t phNxpEseProto7816_Close(void)
+bool_t phNxpEseProto7816_Close(phNxpEseProto7816SecureTimer_t *pSecureTimerParams)
 {
     bool_t status = FALSE;
     if(phNxpEseProto7816_3_Var.phNxpEseProto7816_CurrentState != PH_NXP_ESE_PROTO_7816_IDLE)
@@ -1137,6 +1214,12 @@ bool_t phNxpEseProto7816_Close(void)
     phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.SframeInfo.sFrameType = PROP_END_APDU_REQ;
     phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState = SEND_S_EOS;
     status = TransceiveProcess();
+    if(FALSE == status)
+    {
+        /* reset all the structures */
+        NXPLOG_ESELIB_E("%s TransceiveProcess failed ", __FUNCTION__);
+    }
+    phNxpEse_memcpy(pSecureTimerParams, &phNxpEseProto7816_3_Var.secureTimerParams, sizeof(phNxpEseProto7816SecureTimer_t));
     phNxpEseProto7816_3_Var.phNxpEseProto7816_CurrentState = PH_NXP_ESE_PROTO_7816_IDLE;
     return status;
 }
@@ -1149,7 +1232,7 @@ bool_t phNxpEseProto7816_Close(void)
  * Returns          On success return TRUE or else FALSE.
  *
  ******************************************************************************/
-bool_t phNxpEseProto7816_IntfReset(void)
+bool_t phNxpEseProto7816_IntfReset(phNxpEseProto7816SecureTimer_t *pSecureTimerParam)
 {
     bool_t status = FALSE;
     NXPLOG_ESELIB_D("Enter %s ", __FUNCTION__);
@@ -1163,6 +1246,7 @@ bool_t phNxpEseProto7816_IntfReset(void)
         /* reset all the structures */
         NXPLOG_ESELIB_E("%s TransceiveProcess failed ", __FUNCTION__);
     }
+    phNxpEse_memcpy(pSecureTimerParam, &phNxpEseProto7816_3_Var.secureTimerParams, sizeof(phNxpEseProto7816SecureTimer_t));
     phNxpEseProto7816_3_Var.phNxpEseProto7816_CurrentState = PH_NXP_ESE_PROTO_7816_IDLE;
     NXPLOG_ESELIB_D("Exit %s ", __FUNCTION__);
     return status ;

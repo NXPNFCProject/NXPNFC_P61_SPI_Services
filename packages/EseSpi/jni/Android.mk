@@ -41,23 +41,24 @@ LOCAL_C_INCLUDES += \
     frameworks/native/include \
     external/p61-jcop-kit/inc \
     external/p61-jcop-kit/include \
-    external/libese-spi/common/include
+    system/libese-spi/common/include
 
 ifeq ($(NXP_ESE_CHIP_TYPE),$(P73))
 LOCAL_C_INCLUDES += \
-    external/libese-spi/p73/inc \
-    external/libese-spi/p73/common \
-    external/libese-spi/p73/pal\
-    external/libese-spi/p73/utils
+    system/libese-spi/p73/inc \
+    system/libese-spi/p73/common \
+    system/libese-spi/p73/pal\
+    system/libese-spi/p73/utils
 else ifeq ($(NXP_ESE_CHIP_TYPE),$(P61))
 LOCAL_C_INCLUDES += \
-    external/libese-spi/p61/inc \
-    external/libese-spi/p61/common\
-    external/libese-spi/p61/utils 
+    system/libese-spi/p61/inc \
+    system/libese-spi/p61/common\
+    system/libese-spi/p61/utils
 endif
 
 LOCAL_SHARED_LIBRARIES := \
     libicuuc \
+    liblog \
     libnativehelper \
     libcutils \
     libutils \

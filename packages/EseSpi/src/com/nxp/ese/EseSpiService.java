@@ -695,6 +695,13 @@ public class EseSpiService implements DeviceHost{
                 return mSpiManager.doDisablePowerControl(required);
             }
         }
+
+        @Override
+        public byte[] getSeTimer() throws RemoteException {
+            synchronized (EseSpiService.this) {
+                return mSpiManager.doGetSeTimer();
+            }
+        }
     }
     final class NxpExtrasService extends INxpExtrasService.Stub{
 

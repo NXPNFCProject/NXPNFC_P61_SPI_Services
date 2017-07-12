@@ -15,7 +15,7 @@
  */
 
 #include "SpiChannel.h"
-#include <cutils/log.h>
+#include <log/log.h>
 #include "SyncEvent.h"
 
 extern "C"
@@ -119,7 +119,7 @@ bool close(INT16 clientType)
     bool stat = false;
     static const char fn [] = "SpiChannel::close";
 
-    ALOGD("%s: enter", fn);
+    ALOGV("%s: enter", fn);
     if(clientType == mHandle)
     {
 #if(NXP_ESE_CHIP_TYPE == P73)
@@ -156,7 +156,7 @@ bool transceive (UINT8* xmitBuffer, INT32 xmitBufferSize, UINT8* recvBuffer,
 {
     (void)timeoutMillisec;
     static const char fn [] = "SpiChannel::transceive";
-    ALOGD("%s: enter", fn);
+    ALOGV("%s: enter", fn);
     ESESTATUS status = ESESTATUS_SUCCESS;
     bool stat = false;
     UINT32 recvBuffLen=recvBufferMaxSize;
@@ -183,14 +183,14 @@ bool transceive (UINT8* xmitBuffer, INT32 xmitBufferSize, UINT8* recvBuffer,
 
     if(recvBufferActualSize > 0)
     {
-        ALOGD("%s: recvBuffLen=0x0%x", fn, android::sTransceiveDataLen);
+        ALOGV("%s: recvBuffLen=0x0%x", fn, android::sTransceiveDataLen);
         memcpy (recvBuffer, android::sTransceiveData, recvBufferActualSize);
         stat = true;
     }
 #elif(NXP_ESE_CHIP_TYPE == P73)
     status = phNxpEse_Transceive(&pCmd, &pRsp);
     if (status == ESESTATUS_SUCCESS)
-        ALOGD("%s: phNxpEse_Transceive success");
+        ALOGV("%s: phNxpEse_Transceive success");
      else
          ALOGE ("%s: phNxpEse_Transceive Failed", __FUNCTION__);
 
@@ -198,7 +198,7 @@ bool transceive (UINT8* xmitBuffer, INT32 xmitBufferSize, UINT8* recvBuffer,
 
     if(recvBufferActualSize > 0)
     {
-        ALOGD("%s: recvBuffLen=0x0%x", fn, recvBufferActualSize);
+        ALOGV("%s: recvBuffLen=0x0%x", fn, recvBufferActualSize);
         memcpy (recvBuffer, pRsp.p_data, recvBufferActualSize);
         stat = true;
     }
@@ -210,7 +210,7 @@ bool transceive (UINT8* xmitBuffer, INT32 xmitBufferSize, UINT8* recvBuffer,
     }
 #endif
 
-    ALOGD("%s: exit; status=0x0%x", fn, stat);
+    ALOGV("%s: exit; status=0x0%x", fn, stat);
     return stat;
 }
 
@@ -227,16 +227,16 @@ void doeSE_Reset(void)
 {
     static const char fn [] = "SpiChannel::doeSE_Reset";
     ESESTATUS status = ESESTATUS_SUCCESS;
-    ALOGD("%s: enter:", fn);
+    ALOGV("%s: enter:", fn);
 #if(NXP_ESE_CHIP_TYPE == P61)
     if(status != phNxpEseP61_reset())
 #elif(NXP_ESE_CHIP_TYPE == P73)
     if(status != phNxpEse_reset())
 #endif
     {
-        ALOGD ("phNxpEse_reset: Failed");
+        ALOGV ("phNxpEse_reset: Failed");
     }
-    ALOGD("%s: exit:", fn);
+    ALOGV("%s: exit:", fn);
 
 }
 #if(NXP_ESE_CHIP_TYPE == P73)
@@ -253,12 +253,12 @@ void doeSE_JcopDownLoadReset(void)
 {
     static const char fn [] = "SpiChannel::doeSE_JcopDownLoadReset";
     ESESTATUS status = ESESTATUS_SUCCESS;
-    ALOGD("%s: enter:", fn);
+    ALOGV("%s: enter:", fn);
     if(status != phNxpEse_resetJcopUpdate())
     {
-        ALOGD ("doeSE_JcopDownLoadReset: Failed");
+        ALOGV ("doeSE_JcopDownLoadReset: Failed");
     }
-    ALOGD("%s: exit:", fn);
+    ALOGV("%s: exit:", fn);
 
 }
 #endif

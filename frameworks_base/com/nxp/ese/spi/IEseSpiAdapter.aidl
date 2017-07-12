@@ -31,4 +31,5 @@ interface IEseSpiAdapter {
     int getSeInterface(int type);
     IeSEClientServicesAdapter getSpieSEClientServicesAdapterInterface();
     boolean disablePowerControl(boolean required);
+    byte[] getSeTimer();
 }

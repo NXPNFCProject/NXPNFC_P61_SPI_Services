@@ -16,6 +16,8 @@ LOCAL_CERTIFICATE := platform
 
 LOCAL_PACKAGE_NAME := EseSpi
 
+LOCAL_JAVA_LIBRARIES := com.nxp.nfc
+
 LOCAL_REQUIRED_MODULES := libese_spi_jni
 
 #LOCAL_SDK_VERSION := current

@@ -43,7 +43,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <cutils/log.h>
+#include <log/log.h>
 
 
 
@@ -56,7 +56,7 @@ typedef unsigned char   UINT8;
 typedef unsigned short  UINT16;
 typedef unsigned long   UINT32;
 typedef unsigned long long int UINT64;
-typedef signed   long   INT32;
+typedef int   INT32;
 typedef signed   char   INT8;
 typedef signed   short  INT16;
 typedef unsigned char   BOOLEAN;
@@ -86,12 +86,12 @@ public:
         isAttached = false;
         if(0 == vm_->GetEnv((void **) env, JNI_VERSION_1_6))
         {
-          ALOGD ("%s: Already attached, so don't detach", __FUNCTION__);
+          ALOGV ("%s: Already attached, so don't detach", __FUNCTION__);
           isAttached = true;
         }
         else
         {
-          ALOGD ("%s: Unattached, so attach then detach", __FUNCTION__);
+          ALOGV ("%s: Unattached, so attach then detach", __FUNCTION__);
         }
 #endif
         vm_->AttachCurrentThread(env, NULL);
@@ -102,7 +102,7 @@ public:
 #if(NXP_ESE_CHIP_TYPE == P73)
         if(false == isAttached)
         {
-          ALOGD ("%s: Detaching", __FUNCTION__);
+          ALOGV ("%s: Detaching", __FUNCTION__);
           vm_->DetachCurrentThread();
         }
 #elif(NXP_ESE_CHIP_TYPE == P61)

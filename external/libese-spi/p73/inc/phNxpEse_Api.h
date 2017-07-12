@@ -60,17 +60,17 @@ typedef struct phNxpEse_initParams
 /*!
  * \brief SEAccess kit MW Android version
  */
-#define NXP_ANDROID_VER                         (7U)
+#define NXP_ANDROID_VER                         (8U)
 
 /*!
  * \brief SEAccess kit MW Major version
  */
-#define ESELIB_MW_VERSION_MAJ                   (0x04)
+#define ESELIB_MW_VERSION_MAJ                   (0x0)
 
 /*!
  * \brief SEAccess kit MW Minor version
  */
-#define ESELIB_MW_VERSION_MIN                   (0x0)
+#define ESELIB_MW_VERSION_MIN                   (0x6)
 
 /******************************************************************************
  * \ingroup spi_libese
@@ -284,6 +284,17 @@ void phNxpEse_free(void* ptr);
 + * \retval ESESTATUS_SUCCESS Always return ESESTATUS_SUCCESS (0).
 + *
 +*/
-ESESTATUS phNxpEse_DisablePwrCntrl(uint8_t required);
+ESESTATUS phNxpEse_DisablePwrCntrl(void);
+
+/**
+ * \ingroup spi_libese
+ * \brief This function is used to get the ESE timer status
+ *
+ * \param[in]       phNxpEse_data timer_buffer
+ *
+ * \retval ESESTATUS_SUCCESS Always return ESESTATUS_SUCCESS (0).
+ *
+*/
+ESESTATUS phNxpEse_GetEseStatus(phNxpEse_data *timer_buffer);
 /** @} */
 #endif /* _PHNXPSPILIB_API_H_ */

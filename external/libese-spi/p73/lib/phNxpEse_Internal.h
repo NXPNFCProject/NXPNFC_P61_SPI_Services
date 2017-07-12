@@ -25,6 +25,7 @@
 #ifdef SPM_INTEGRATED
 #include "../spm/phNxpEse_Spm.h"
 #endif
+
 /********************* Definitions and structures *****************************/
 
 typedef enum
@@ -45,12 +46,23 @@ typedef enum
 
 /* Macros definition */
 #define MAX_DATA_LEN      260
+#define SECOND_TO_MILLISECOND(X) X*1000
+#define CONVERT_TO_PERCENTAGE(X, Y) X*Y/100
+#define ADDITIONAL_SECURE_TIME_PERCENTAGE 5
 #if(NXP_ESE_JCOP_DWNLD_PROTECTION == TRUE)
 #define ESE_JCOP_OS_DWNLD_RETRY_CNT   10 /* Maximum retry count for ESE JCOP OS Dwonload*/
 #endif
 #if(NXP_NFCC_SPI_FW_DOWNLOAD_SYNC == TRUE)
 #define ESE_FW_DWNLD_RETRY_CNT        10 /* Maximum retry count for FW Dwonload*/
 #endif
+
+/* Secure timer values F1, F2, F3 */
+typedef struct phNxpEse_SecureTimer
+{
+  unsigned int secureTimer1;
+  unsigned int secureTimer2;
+  unsigned int secureTimer3;
+}phNxpEse_SecureTimer_t;
 
 /* JCOP download states */
 typedef enum jcop_dwnld_state{
@@ -74,6 +86,7 @@ typedef struct phNxpEse_Context
     bool_t  spm_power_state;
     uint8_t pwr_scheme;
     phNxpEse_initParams initParams;
+    phNxpEse_SecureTimer_t secureTimerParams;
 } phNxpEse_Context_t;
 
 /* Timeout value to wait for response from

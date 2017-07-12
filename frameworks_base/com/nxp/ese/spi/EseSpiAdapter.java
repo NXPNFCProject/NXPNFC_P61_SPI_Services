@@ -346,7 +346,26 @@ public final class EseSpiAdapter {
         }
     }
 
-
+    /**
+     *  Get the ESE timer values
+     *
+     * <p> This call is synchronous
+     *
+     * <p> This will return byte array with 3 timer values in TLV format
+     *
+     */
+    public byte[] getSeTimer() throws IOException {
+        try {
+            if(eseSpiService !=null) {
+                Log.d(TAG,"spiService present  " + eseSpiService);
+            }
+            byte[] result = eseSpiService.getSeTimer();
+            return result;
+        } catch (RemoteException e) {
+            Log.e(TAG, "getSeTimer failed", e);
+            throw new IOException("getSeTimer failed");
+        }
+    }
 }
 
 /** @} */

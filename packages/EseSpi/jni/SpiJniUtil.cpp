@@ -36,7 +36,6 @@
 
 #include "SpiJniUtil.h"
 
-#include <cutils/log.h>
 #include <errno.h>
 #include <JNIHelp.h>
 
@@ -55,7 +54,7 @@
 jint JNI_OnLoad (JavaVM *jvm, void *reserved)
 {
     (void)reserved;
-    ALOGD ("%s: enter", __FUNCTION__);
+    ALOGV ("%s: enter", __FUNCTION__);
     JNIEnv *e = NULL;
 
     ALOGI("SPI Service: loading SPI JNI");
@@ -76,6 +75,6 @@ jint JNI_OnLoad (JavaVM *jvm, void *reserved)
         ALOGE("ERROR: registerNativeEseAla failed\n");
         return JNI_ERR;
     }
-    ALOGD ("%s: exit", __FUNCTION__);
+    ALOGV ("%s: exit", __FUNCTION__);
     return JNI_VERSION_1_6;
 }
