@@ -398,12 +398,12 @@ public class EseSpiService implements DeviceHost{
             EseSpiLoaderService nas = new EseSpiLoaderService();
             nas.LSReexecute();
 
-            mOpenSPI = new OpenSPI(Binder.getCallingPid(), b);
+            /*mOpenSPI = new OpenSPI(Binder.getCallingPid(), b);
             try {
                 b.linkToDeath(mOpenSPI, 0);
             } catch (RemoteException e) {
                 mOpenSPI.binderDied();
-            }
+            }*/
             try {
                 Log.i(TAG, "Inside 1st try after thread creation");
                 mRoutingWakeLock.acquire();
