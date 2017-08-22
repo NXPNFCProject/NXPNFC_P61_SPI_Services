@@ -111,8 +111,6 @@ ESESTATUS phNxpEse_init(phNxpEse_initParams initParams)
     }
 #endif
 #endif
-    /* Delay before the first transceive */
-    phPalEse_sleep(3000);
 
     /* T=1 Protocol layer open */
     status = phNxpEseProto7816_Open(protoInitParam);
