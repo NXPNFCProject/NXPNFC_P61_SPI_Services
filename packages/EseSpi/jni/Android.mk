@@ -41,7 +41,8 @@ LOCAL_C_INCLUDES += \
     frameworks/native/include \
     external/p61-jcop-kit/inc \
     external/p61-jcop-kit/include \
-    system/libese-spi/common/include
+    system/libese-spi/common/include \
+    libnativehelper/include/nativehelper
 
 ifeq ($(NXP_ESE_CHIP_TYPE),$(P73))
 LOCAL_C_INCLUDES += \

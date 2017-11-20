@@ -118,7 +118,7 @@ int phPalEse_spi_read(void *pDevHandle, uint8_t * pBuffer, int nNbBytesToRead)
     int ret = -1;
     NXPLOG_PAL_D("%s Read Requested %d bytes", __FUNCTION__, nNbBytesToRead);
     ret = read((intptr_t)pDevHandle, (void *)pBuffer, (nNbBytesToRead));
-    NXPLOG_PAL_D(" read returned= %d", ret);
+    NXPLOG_PAL_D("Read Returned = %d", ret);
     return ret;
 }
 

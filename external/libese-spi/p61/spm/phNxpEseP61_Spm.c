@@ -20,7 +20,6 @@
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <linux/p61.h>
 #include "phNxpEseP61_Spm.h"
 #include <phNxpEseHal.h>
 #include <phNxpEseProtocol.h>

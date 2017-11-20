@@ -59,12 +59,12 @@ LOCAL_SRC_FILES += \
 
 ANDROID_VER := $(subst ., , $(PLATFORM_VERSION))
 ANDROID_VER := $(word 1, $(ANDROID_VER))
-LOCAL_ANDROID_M := TRUE
-ifeq ($(ANDROID_VER), 6)
-LOCAL_ANDROID_M := TRUE
+LOCAL_SHARED_LIBSTL := TRUE
+ifeq ($(shell expr $(ANDROID_VER) \>= 6), 1)
+LOCAL_SHARED_LIBSTL := FALSE
 endif
 
-ifeq ($(LOCAL_ANDROID_M),FALSE)
+ifeq ($(LOCAL_SHARED_LIBSTL),TRUE)
 LOCAL_SHARED_LIBRARIES := liblog libcutils libhardware_legacy libdl libstlport
 LOCAL_C_INCLUDES += \
         external/stlport/stlport  bionic/  bionic/libstdc++/include \

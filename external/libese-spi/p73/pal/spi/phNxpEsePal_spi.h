@@ -34,6 +34,10 @@
  */
 #define ESE_POLL_TIMEOUT (2*1000)
 /*!
+ * \brief ESE Poll timeout (max 2 seconds)
+ */
+#define ESE_NAD_POLLING_MAX (2*1000)
+/*!
  * \brief Max retry count for Write
  */
 #define MAX_RETRY_COUNT   3
@@ -41,7 +45,15 @@
 /*!
  * \brief ESE wakeup delay in case of write error retry
  */
-#define WAKE_UP_DELAY 1000
+#define WAKE_UP_DELAY 100
+/*!
+ * \brief ESE wakeup delay in case of write error retry
+ */
+#define NAD_POLLING_SCALER 10
+/*!
+ * \brief ESE wakeup delay in case of write error retry
+ */
+#define CHAINED_PKT_SCALER 1
 /*!
  * \brief Magic type specific to the ESE device driver
  */

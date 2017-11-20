@@ -23,12 +23,23 @@
 #include <phNxpEsePal_spi.h>
 
 #define RECIEVE_PACKET_SOF      0xA5
+#define CHAINED_PACKET_WITHSEQN      0x60
+#define CHAINED_PACKET_WITHOUTSEQN      0x20
+#define PH_PAL_ESE_PRINT_PACKET_TX(data,len) ({                         \
+           if(gLog_level.spix_log_level == NXPLOG_LOG_DEBUG_LOGLEVEL)   \
+               phPalEse_print_packet("SEND",data,len);                  \
+                                              })
+#define PH_PAL_ESE_PRINT_PACKET_RX(data,len) ({                         \
+           if(gLog_level.spir_log_level == NXPLOG_LOG_DEBUG_LOGLEVEL)   \
+               phPalEse_print_packet("RECV",data,len);                  \
+                                              })
 static int phNxpEse_readPacket(void *pDevHandle, uint8_t * pBuffer, int nNbBytesToRead);
 static ESESTATUS phNxpEse_checkJcopDwnldState(void);
 static ESESTATUS phNxpEse_setJcopDwnldState(phNxpEse_JcopDwnldState state);
 static ESESTATUS phNxpEse_checkFWDwnldStatus(void);
 static void phNxpEse_GetMaxTimer(unsigned long *pMaxTimer);
 static unsigned char * phNxpEse_GgetTimerTlvBuffer(unsigned char *timer_buffer, unsigned int value);
+static int poll_sof_chained_delay = 0;
 /*********************** Global Variables *************************************/
 
 /* ESE Context structure */
@@ -1007,8 +1018,7 @@ ESESTATUS phNxpEse_read(uint32_t *data_len, uint8_t **pp_data)
     }
     else
     {
-        phPalEse_print_packet("RECV", nxpese_ctxt.p_read_buff,
-                            ret);
+        PH_PAL_ESE_PRINT_PACKET_RX(nxpese_ctxt.p_read_buff,ret);
         *data_len = ret;
         *pp_data = nxpese_ctxt.p_read_buff;
         status = ESESTATUS_SUCCESS;
@@ -1032,55 +1042,85 @@ static int phNxpEse_readPacket(void *pDevHandle, uint8_t * pBuffer, int nNbBytes
 {
     int ret = -1;
     int sof_counter = 0;/* one read may take 1 ms*/
-    int total_count = 0;
+    int total_count = 0,numBytesToRead=0,headerIndex=0;
 
     NXPLOG_ESELIB_D("%s Enter", __FUNCTION__);
     do
     {
         sof_counter++;
         ret = -1;
-        ret = phPalEse_read(pDevHandle, pBuffer, 1);
-        if (ret <= 0)
+        ret = phPalEse_read(pDevHandle, pBuffer, 2);
+        if (ret < 0)
         {
             /*Polling for read on spi, hence Debug log*/
             NXPLOG_PAL_D("_spi_read() [HDR]errno : %x ret : %X", errno, ret);
         }
-        if (pBuffer[0] != RECIEVE_PACKET_SOF)
-            phPalEse_sleep(WAKE_UP_DELAY); /*sleep for 1ms*/
-    }while((pBuffer[0] != RECIEVE_PACKET_SOF) && (sof_counter < ESE_POLL_TIMEOUT));
-
-    if (pBuffer[0] == RECIEVE_PACKET_SOF)
+        if(pBuffer[0] == RECIEVE_PACKET_SOF)
+        {
+            /* Read the HEADR of one byte*/
+            NXPLOG_ESELIB_D("%s Read HDR", __FUNCTION__);
+            numBytesToRead = 1;
+            headerIndex = 1;
+            break;
+        }
+        else if(pBuffer[1] == RECIEVE_PACKET_SOF)
+        {
+            /* Read the HEADR of Two bytes*/
+            NXPLOG_ESELIB_D("%s Read HDR", __FUNCTION__);
+            pBuffer[0] = RECIEVE_PACKET_SOF;
+            numBytesToRead = 2;
+            headerIndex = 0;
+            break;
+        }
+        /*If it is Chained packet wait for 100 usec*/
+        if(poll_sof_chained_delay == 1)
+        {
+            NXPLOG_ESELIB_D("%s Chained Pkt, delay read %dus",__FUNCTION__,WAKE_UP_DELAY * CHAINED_PKT_SCALER);
+            phPalEse_sleep(WAKE_UP_DELAY * CHAINED_PKT_SCALER);
+        }
+        else
+        {
+            NXPLOG_ESELIB_D("%s Normal Pkt, delay read %dus",__FUNCTION__,WAKE_UP_DELAY * NAD_POLLING_SCALER);
+            phPalEse_sleep(WAKE_UP_DELAY * NAD_POLLING_SCALER);
+        }
+    } while (sof_counter < ESE_NAD_POLLING_MAX);
+    if(pBuffer[0] == RECIEVE_PACKET_SOF)
     {
-        NXPLOG_ESELIB_D("SOF: 0x%x", pBuffer[0]);
-        total_count = 1;
-        /* Read the HEADR of Two bytes*/
-        ret = phPalEse_read(pDevHandle, &pBuffer[1], 2);
+        NXPLOG_ESELIB_D("%s SOF FOUND", __FUNCTION__);
+        /* Read the HEADR of one/Two bytes based on how two bytes read A5 PCB or 00 A5*/
+        ret = phPalEse_read(pDevHandle, &pBuffer[1+headerIndex], numBytesToRead);
         if (ret < 0)
         {
             NXPLOG_PAL_E("_spi_read() [HDR]errno : %x ret : %X", errno, ret);
         }
+        if((pBuffer[1] == CHAINED_PACKET_WITHOUTSEQN) || (pBuffer[1] == CHAINED_PACKET_WITHSEQN))
+        {
+            poll_sof_chained_delay = 1;
+            NXPLOG_ESELIB_D("poll_sof_chained_delay value is %d ", poll_sof_chained_delay);
+        }
         else
         {
-            total_count += 2;
-            /* Get the data length */
-            nNbBytesToRead = pBuffer[2];
-            NXPLOG_ESELIB_D("lenght 0x%x", nNbBytesToRead);
-
-            ret = phPalEse_read(pDevHandle, &pBuffer[3], (nNbBytesToRead+1));
-            if (ret < 0)
-            {
-                NXPLOG_PAL_E("_spi_read() [HDR]errno : %x ret : %X", errno, ret);
-            }
-            else
-            {
-               ret = (total_count + (nNbBytesToRead+1));
-            }
+            poll_sof_chained_delay = 0;
+            NXPLOG_ESELIB_D("poll_sof_chained_delay value is %d ", poll_sof_chained_delay);
         }
-    }
-    else
-    {
-        ret = -1;
-    }
+        total_count = 3;
+        nNbBytesToRead = pBuffer[2];
+        /* Read the Complete data + one byte CRC*/
+        ret = phPalEse_read(pDevHandle, &pBuffer[3], (nNbBytesToRead+1));
+        if (ret < 0)
+        {
+            NXPLOG_PAL_E("_spi_read() [HDR]errno : %x ret : %X", errno, ret);
+            ret = -1;
+        }
+        else
+        {
+            ret = (total_count + (nNbBytesToRead+1));
+        }
+   }
+   else
+   {
+       ret=-1;
+   }
     NXPLOG_ESELIB_D("%s Exit ret = %d", __FUNCTION__, ret);
     return ret;
 }
@@ -1118,8 +1158,7 @@ ESESTATUS phNxpEse_WriteFrame(uint32_t data_len, const uint8_t *p_data)
     else
     {
         status = ESESTATUS_SUCCESS;
-        phPalEse_print_packet("SEND", nxpese_ctxt.p_cmd_data,
-                            nxpese_ctxt.cmd_len);
+        PH_PAL_ESE_PRINT_PACKET_TX(nxpese_ctxt.p_cmd_data,nxpese_ctxt.cmd_len);
     }
 
     NXPLOG_ESELIB_D("Exit %s status %x\n", __FUNCTION__, status);

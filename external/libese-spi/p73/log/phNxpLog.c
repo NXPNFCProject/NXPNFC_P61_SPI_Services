@@ -75,7 +75,7 @@ static void phNxpLog_SetEseLibLogLevel (uint8_t level)
 
     if (GetNxpNumValue (NAME_NXPLOG_ESELIB_LOGLEVEL, &num, sizeof(num)))
     {
-        gLog_level.eselib_log_level = (level > (unsigned char) num) ? level : (unsigned char) num;;
+        gLog_level.eselib_log_level = (level > (unsigned char) num) ? level : (unsigned char) num;
     }
 
     len = property_get (PROP_NAME_NXPLOG_ESELIB_LOGLEVEL, valueStr, "");
@@ -103,7 +103,7 @@ static void phNxpLog_SetExtnsLogLevel (uint8_t level)
     char valueStr [PROPERTY_VALUE_MAX] = {0};
     if (GetNxpNumValue (NAME_NXPLOG_EXTNS_LOGLEVEL, &num, sizeof(num)))
     {
-        gLog_level.extns_log_level = (level > (unsigned char) num) ? level : (unsigned char) num;;
+        gLog_level.extns_log_level = (level > (unsigned char) num) ? level : (unsigned char) num;
     }
 
     len = property_get (PROP_NAME_NXPLOG_EXTNS_LOGLEVEL, valueStr, "");
@@ -131,7 +131,7 @@ static void phNxpLog_SetPalLogLevel (uint8_t level)
     char valueStr [PROPERTY_VALUE_MAX] = {0};
     if (GetNxpNumValue (NAME_NXPLOG_PAL_LOGLEVEL, &num, sizeof(num)))
     {
-        gLog_level.pal_log_level = (level > (unsigned char) num) ? level : (unsigned char) num;;
+        gLog_level.pal_log_level = (level > (unsigned char) num) ? level : (unsigned char) num;
     }
 
     len = property_get (PROP_NAME_NXPLOG_PAL_LOGLEVEL, valueStr, "");
@@ -159,7 +159,7 @@ static void phNxpLog_SetDnldLogLevel (uint8_t level)
     char valueStr [PROPERTY_VALUE_MAX] = {0};
     if (GetNxpNumValue (NAME_NXPLOG_FWDNLD_LOGLEVEL, &num, sizeof(num)))
     {
-        gLog_level.dnld_log_level = (level > (unsigned char) num) ? level : (unsigned char) num;;
+        gLog_level.dnld_log_level = (level > (unsigned char) num) ? level : (unsigned char) num;
     }
 
     len = property_get (PROP_NAME_NXPLOG_FWDNLD_LOGLEVEL, valueStr, "");
@@ -191,7 +191,7 @@ static void phNxpLog_SetSpiTxLogLevel (uint8_t level)
     }
     if (GetNxpNumValue (NAME_NXPLOG_SPIR_LOGLEVEL, &num, sizeof(num)))
     {
-        gLog_level.spir_log_level = (level > (unsigned char) num) ? level : (unsigned char) num;;
+        gLog_level.spir_log_level = (level > (unsigned char) num) ? level : (unsigned char) num;
     }
 
     len = property_get (PROP_NAME_NXPLOG_SPI_LOGLEVEL, valueStr, "");

@@ -36,16 +36,16 @@ LOCAL_ARM_MODE := ar
 #LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)
 LOCAL_MODULE_TAGS := optional
 LOCAL_MULTILIB := both
-LOCAL_SRC_FILES := -Wall $(call all-c-files-under, .)  $(call all-cpp-files-under, .)
+LOCAL_SRC_FILES := $(call all-c-files-under, .)  $(call all-cpp-files-under, .)
 
 ANDROID_VER := $(subst ., , $(PLATFORM_VERSION))
 ANDROID_VER := $(word 1, $(ANDROID_VER))
-LOCAL_ANDROID_M := FALSE
-ifeq ($(ANDROID_VER), 6)
-LOCAL_ANDROID_M := TRUE
+LOCAL_SHARED_LIBSTL := TRUE
+ifeq ($(shell expr $(ANDROID_VER) \>= 6), 1)
+LOCAL_SHARED_LIBSTL := FALSE
 endif
 
-ifeq ($(LOCAL_ANDROID_M),FALSE)
+ifeq ($(LOCAL_SHARED_LIBSTL),TRUE)
 LOCAL_SHARED_LIBRARIES := liblog libcutils libhardware_legacy libdl libstlport
 LOCAL_C_INCLUDES += \
         external/stlport/stlport  bionic/  bionic/libstdc++/include \

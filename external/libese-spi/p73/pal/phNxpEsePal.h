@@ -166,7 +166,7 @@ void phPalEse_print_packet(const char *pString, const uint8_t *p_data,
  * \retval   void
  *
  */
-void phPalEse_sleep(uint32_t usec);
+void phPalEse_sleep(long usec);
 
 /**
  * \ingroup eSe_PAL

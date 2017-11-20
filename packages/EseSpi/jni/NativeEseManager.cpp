@@ -559,8 +559,8 @@ static int nativeEseManager_doStartDownload(JNIEnv *e, jobject obj)
         phNxpEseP61_setIfsc(IFSC_NONJCOPDWNLD);
 #elif(NXP_ESE_CHIP_TYPE == P73)
         phNxpEse_setIfsc(IFSC_NONJCOPDWNLD);
-        Spichannel_Deinit(JCP_SRVCE);
 #endif
+        Spichannel_Deinit(JCP_SRVCE);
     }
     gJcopDwnldinProgress = false;
     ALOGV ("%s: Exit; status =0x%X", __FUNCTION__,status);
@@ -777,6 +777,7 @@ static jboolean nativeEseManager_doDisablePwrCntrl(JNIEnv *e, jobject obj, jbool
  * \retval  byteArray of secure timer values
  *
  */
+#if(NXP_ESE_CHIP_TYPE != P61)
 static jbyteArray nativeEseManager_doGetSeTimer(JNIEnv *e, jobject obj)
 {
     ESESTATUS status = ESESTATUS_SUCCESS;
@@ -798,7 +799,7 @@ static jbyteArray nativeEseManager_doGetSeTimer(JNIEnv *e, jobject obj)
     }
     return NULL;
 }
-
+#endif
 static int nativeEseManager_doGetSeInterface(JNIEnv *e, jobject obj, jint type)
 {
     unsigned long num = 2;
@@ -895,7 +896,9 @@ static JNINativeMethod methods[] = {
         {"doStartJcopDownload", "()I", (void*)nativeEseManager_doStartDownload},
         {"doAbort", "()V", (void*)nativeEseManager_doAbort},
         {"doDisablePowerControl", "(Z)Z", (void*)nativeEseManager_doDisablePwrCntrl},
+#if(NXP_ESE_CHIP_TYPE != P61)
         {"doGetSeTimer", "()[B", (void*)nativeEseManager_doGetSeTimer},
+#endif
         {"doGetSeInterface", "(I)I", (void*)nativeEseManager_doGetSeInterface},
         {"doCheckJcopDlAtBoot", "()Z", (void*)nativeEseManager_doCheckJcopDlAtBoot}
 
