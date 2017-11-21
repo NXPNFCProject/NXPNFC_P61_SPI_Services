@@ -80,7 +80,6 @@ ESESTATUS phNxpEseP61_open( ese_stack_data_callback_t *p_data_cback, phNxpEseP61
     memset(&tOsalConfig, 0x00, sizeof(tOsalConfig));
     memset(&tTmlConfig, 0x00, sizeof(tTmlConfig));
 
-#if(NFC_NXP_ESE_VER == JCOP_VER_3_2)
     if (GetNxpNumValue (NAME_NXP_WTX_COUNT_VALUE, &num, sizeof(num)))
     {
         nxpesehal_ctrl.wtx_counter_value = num;
@@ -91,7 +90,6 @@ ESESTATUS phNxpEseP61_open( ese_stack_data_callback_t *p_data_cback, phNxpEseP61
         nxpesehal_ctrl.wtx_counter_value = 0;
         NXPLOG_SPIHAL_E("Wtx_counter not defined in config file - %lu",num);
     }
-#endif
     /* make sequence counter 1*/
     nxpesehal_ctrl.seq_counter = 0x01;
     nxpesehal_ctrl.isRFrame = 0;
@@ -302,7 +300,6 @@ ESESTATUS phNxpEseP61_openPrioSession(ese_stack_data_callback_t *p_data_cback,
     memset(&nxpesehal_ctrl, 0x00, sizeof(nxpesehal_ctrl));
     memset(&tOsalConfig, 0x00, sizeof(tOsalConfig));
     memset(&tTmlConfig, 0x00, sizeof(tTmlConfig));
-#if(NFC_NXP_ESE_VER == JCOP_VER_3_2)
     if (GetNxpNumValue (NAME_NXP_WTX_COUNT_VALUE, &num, sizeof(num)))
     {
         nxpesehal_ctrl.wtx_counter_value = num;
@@ -313,7 +310,6 @@ ESESTATUS phNxpEseP61_openPrioSession(ese_stack_data_callback_t *p_data_cback,
         nxpesehal_ctrl.wtx_counter_value = 0;
         NXPLOG_SPIHAL_E("Wtx_counter not defined in config file - %lu",num);
     }
-#endif
     /* make sequence counter 1*/
     nxpesehal_ctrl.seq_counter = 0x01;
     /* reset config cache */
