@@ -69,6 +69,8 @@ ESESTATUS phNxpEseP61_open( ese_stack_data_callback_t *p_data_cback, phNxpEseP61
     spm_state_t current_spm_state = SPM_STATE_INVALID;
 #endif
 
+    /* initialize trace level */
+    phNxpLog_InitializeLogLevel();
     /*When spi channel is already opened return status as FAILED*/
     if(nxpesehal_ctrl.halStatus != ESE_STATUS_CLOSE)
     {
@@ -97,8 +99,6 @@ ESESTATUS phNxpEseP61_open( ese_stack_data_callback_t *p_data_cback, phNxpEseP61
     /* reset config cache */
     resetNxpConfig();
 
-    /* initialize trace level */
-    phNxpLog_InitializeLogLevel();
 
     /*Create the timer for extns write response*/
     nxpesehal_ctrl.timeoutTimerId = phOsalEse_Timer_Create();
@@ -745,7 +745,6 @@ ESESTATUS phNxpEseP61_read(void)
         NXPLOG_SPIHAL_E("Response timer not started!!!");
         return ESESTATUS_FAILED;
     }
-#if(NFC_NXP_ESE_VER == JCOP_VER_3_2)
     if(nxpesehal_ctrl.wtx_counter_value != 0)
     {
         if(nxpesehal_ctrl.wtx_counter == nxpesehal_ctrl.wtx_counter_value)
@@ -754,7 +753,6 @@ ESESTATUS phNxpEseP61_read(void)
             return status;
         }
     }
-#endif
     /* call read pending */
     status = phTmlEse_Read(
             nxpesehal_ctrl.p_read_buff,
@@ -789,12 +787,10 @@ STATIC void phNxpEseP61_WaitForAckCb(uint32_t timerId, void *pContext)
     UNUSED(timerId);
     UNUSED(pContext);
 
-#if(NFC_NXP_ESE_VER == JCOP_VER_3_2)
     if(nxpesehal_ctrl.wtx_counter_value != 0)
     {
         wtx_flag = TRUE;
     }
-#endif
     if(wtx_flag)
     {
         if(nxpesehal_ctrl.wtx_counter == nxpesehal_ctrl.wtx_counter_value)

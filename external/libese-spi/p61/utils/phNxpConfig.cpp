@@ -230,8 +230,18 @@ bool CEseConfig::readConfig(const char* name, bool bResetContent)
             moveToList();
     }
 
-    while (!feof(fd) && fread(&c, 1, 1, fd) == 1)
+    for (;;)
     {
+        if (feof(fd) || fread(&c, 1, 1, fd) != 1)
+        {
+            if (state == BEGIN_LINE)
+                break;
+
+            // got to the EOF but not in BEGIN_LINE state so the file
+            // probably does not end with a newline, so the parser has
+            // not processed current line, simulate a newline in the file
+            c = '\n';
+        }
         switch (state & 0xff)
         {
         case BEGIN_LINE:

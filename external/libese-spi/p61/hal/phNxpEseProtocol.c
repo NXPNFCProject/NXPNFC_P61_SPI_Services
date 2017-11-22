@@ -734,12 +734,10 @@ ESESTATUS phNxpEseP61_Action(ESESTATUS action_evt, uint32_t data_len, uint8_t *p
         }
         status = ESESTATUS_ABORTED;
     }
-#if(NFC_NXP_ESE_VER == JCOP_VER_3_2)
         if(nxpesehal_ctrl.wtx_counter_value != 0)
         {
            wtx_flag = TRUE;
         }
-#endif
     if(wtx_flag)
     {
         if(action_evt != ESESTATUS_WTX_REQ)
